@@ -1,0 +1,52 @@
+name: Задача дизайна
+description: Задача для подкоманды design (user flow, wireframes, макеты, UI-kit, прототип)
+title: "[DESIGN] "
+labels: ["design"]
+projects: ["study-ai-assistant/1"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Название задачи дизайна всегда начинается с `[DESIGN]` — не удаляйте этот префикс.
+        Правила работы с макетами — в [docs/FIGMA_GUIDE.md](https://github.com/study-ai-assistant/mobile/blob/main/docs/FIGMA_GUIDE.md).
+  - type: textarea
+    id: description
+    attributes:
+      label: Описание
+      description: Что нужно нарисовать или спроектировать и зачем
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Критерии приёмки
+      description: Каждый пункт — отдельная галочка. Не забудьте чек-лист «макет готов» из FIGMA_GUIDE.
+      value: |
+        - [ ]
+        - [ ] Ссылка на фрейм добавлена в этот Issue
+        - [ ] Макет просмотрен участником mobile
+    validations:
+      required: true
+  - type: input
+    id: reference
+    attributes:
+      label: Ссылка на фрейм в Figma
+      description: Ссылка на конкретный фрейм, а не на весь файл. Если макета ещё нет — добавьте ссылку, когда он появится.
+      placeholder: https://www.figma.com/design/...
+  - type: dropdown
+    id: size
+    attributes:
+      label: Размер
+      description: "S — до полудня, M — около дня, L — до 2 дней (лучше разбить)"
+      options:
+        - S
+        - M
+        - L
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Зависимости
+      description: От каких задач зависит эта задача (например, "зависит от #3")
+      placeholder: "- зависит от #3"
