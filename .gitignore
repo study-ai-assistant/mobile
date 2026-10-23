@@ -26,3 +26,13 @@ logs/
 # Временные файлы
 tmp/
 *.tmp
+
+# Android / Gradle
+local.properties
+.gradle/
+build/
+.idea/
+*.iml
+captures/
+.externalNativeBuild/
+.cxx/
