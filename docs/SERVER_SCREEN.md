@@ -14,6 +14,17 @@
    затем повторно нажать кнопку. Без разрешения запрос не отправляется.
 5. Для настоящего конспекта backend должен иметь действующие настройки LLM.
    `GET /health` работает и без ключа; сам по себе не подтверждает работу генерации.
+6. Если Windows использует системный прокси, Java по умолчанию может подключаться
+   напрямую. В проверенной локальной конфигурации прямой запрос к Groq возвращал
+   403, а через уже настроенный системный прокси — 200. Для запуска собранного
+   backend с настройками сети Windows используйте JDK 21:
+
+   ```powershell
+   java -Djava.net.useSystemProxies=true -jar target/backend-0.0.1-SNAPSHOT.jar
+   ```
+
+   Команда выполняется из папки backend, где находится локальный `.env`.
+   Не добавляйте ключ в команду, Git, скриншоты или комментарии.
 
 ## Ручная проверка
 
@@ -42,6 +53,29 @@
 явный повтор и защиту от позднего ответа после отмены. `StudyFlowUiTest` проверяет
 экраны на Android с тестовыми ответами, включая копирование, ошибку и отмену.
 Эти тестовые ответы не являются проверкой настоящего backend/LLM.
+
+### Отдельная проверка настоящего backend/LLM
+
+`LiveBackendTest` по умолчанию пропускается. Для его запуска нужны работающий
+backend, настроенный локально LLM и эмулятор. Тест отправляет короткий учебный текст
+провайдеру; возможен расход его квоты. Проверяются `/health`, получение конспекта
+через UI, копирование результата и сохранение текста при возврате.
+
+```powershell
+.\gradlew.bat connectedDebugAndroidTest "-Pandroid.testInstrumentationRunnerArguments.class=ru.studyassistant.mobile.LiveBackendTest" "-Pandroid.testInstrumentationRunnerArguments.liveBackend=true" "-Pandroid.testInstrumentationRunnerArguments.expectLlmSuccess=true"
+```
+
+Скриншоты и JSON с результатом сохраняются в
+`app/build/outputs/connected_android_test_additional_output/`.
+
+Чтобы отдельно проверить недоступный сервер, остановите локальный backend и выполните:
+
+```powershell
+.\gradlew.bat connectedDebugAndroidTest "-Pandroid.testInstrumentationRunnerArguments.class=ru.studyassistant.mobile.LiveBackendTest#serverUnavailable" "-Pandroid.testInstrumentationRunnerArguments.liveBackend=true" "-Pandroid.testInstrumentationRunnerArguments.backendOffline=true"
+```
+
+После проверки снова запустите backend. Результат выполненной интеграционной
+проверки: [INTEGRATION_CHECK.md](INTEGRATION_CHECK.md).
 
 Задача не считается Done до review, слияния и демонстрации полного сценария
 с настоящим backend/LLM. Согласование design по #5 учитывается отдельно.
