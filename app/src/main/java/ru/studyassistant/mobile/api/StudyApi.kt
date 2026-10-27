@@ -25,12 +25,13 @@ class StudyApi(private val baseUrl: String = ServerConfig.BASE_URL) {
         return "Сервер доступен: status = ok"
     }
 
-    fun process(text: String): String {
+    fun process(text: String, mode: String = "SHORT_SUMMARY"): String {
         validateMaterial(text)?.let { throw ApiException(it) }
-        val body = JSONObject().put("text", text).put("mode", "SHORT_SUMMARY")
+        if (mode != "SHORT_SUMMARY") throw ApiException("Режим пока недоступен.")
+        val body = JSONObject().put("text", text).put("mode", mode)
         val response = request("POST", "/api/v1/text/process", body)
         val result = response.opt("result")
-        if (response.optString("mode") != "SHORT_SUMMARY" || result !is String || result.isBlank()) {
+        if (response.optString("mode") != mode || result !is String || result.isBlank()) {
             throw ApiException("Сервер вернул ответ без корректного результата обработки.")
         }
         return result

@@ -1,148 +1,162 @@
 package ru.studyassistant.mobile
 
 import android.Manifest
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
-import ru.studyassistant.mobile.api.ApiException
 import ru.studyassistant.mobile.api.StudyApi
-import ru.studyassistant.mobile.api.validateMaterial
 import ru.studyassistant.mobile.ui.theme.AIStudyAssistantTheme
+
+class StudyViewModel : ViewModel() {
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private val api = StudyApi()
+    val flow = StudyFlow(scope,
+        process = { text, mode -> withContext(Dispatchers.IO) { api.process(text, mode.name) } },
+        health = { withContext(Dispatchers.IO) { api.health() } }
+    )
+    override fun onCleared() { scope.cancel() }
+}
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        setContent { AIStudyAssistantTheme { ServerScreen() } }
+        val flow = ViewModelProvider(this)[StudyViewModel::class.java].flow
+        setContent { AIStudyAssistantTheme { StudyApp(flow) } }
     }
 }
 
 @Composable
-private fun ServerScreen() {
-    var material by rememberSaveable { mutableStateOf("") }
-    var busy by remember { mutableStateOf(false) }
-    var message by remember { mutableStateOf("") }
-    var error by remember { mutableStateOf(false) }
-    val api = remember { StudyApi() }
-    val scope = rememberCoroutineScope()
+fun StudyApp(flow: StudyFlow) {
+    val state by flow.state.collectAsState()
     val context = LocalContext.current
-    val localNetworkPermission = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        error = !granted
-        message = if (granted) {
-            "Доступ к локальной сети разрешён. Нажмите нужную кнопку ещё раз."
-        } else {
-            "Для связи с сервером на компьютере разрешите доступ к устройствам поблизости " +
-                "в настройках приложения → Разрешения."
-        }
+    var copied by remember(state.result, state.screen) { mutableStateOf(false) }
+    var longWait by remember { mutableStateOf(false) }
+    LaunchedEffect(state.busy) {
+        longWait = false
+        if (state.busy) { delay(20_000); longWait = true }
     }
-
-    fun runRequest(healthOnly: Boolean) {
-        if (busy) return
-        val submittedText = material
-        val validation = if (healthOnly) null else validateMaterial(submittedText)
-        if (validation != null) {
-            error = true
-            message = validation
-            return
-        }
-        // Сервер разработки находится в локальной сети. Android 17 блокирует её
-        // без runtime-разрешения, причём блокировка может выглядеть как таймаут.
+    val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
+        flow.permissionMessage(it)
+    }
+    fun request(health: Boolean) {
         if (Build.VERSION.SDK_INT >= 37 && ContextCompat.checkSelfPermission(
                 context, Manifest.permission.ACCESS_LOCAL_NETWORK
             ) != PackageManager.PERMISSION_GRANTED
         ) {
-            localNetworkPermission.launch(Manifest.permission.ACCESS_LOCAL_NETWORK)
-            return
-        }
-        busy = true
-        error = false
-        message = ""
-        scope.launch {
-            try {
-                message = withContext(Dispatchers.IO) {
-                    if (healthOnly) api.health() else api.process(submittedText)
-                }
-            } catch (e: ApiException) {
-                error = true
-                message = e.message ?: "Не удалось выполнить запрос."
-            } finally {
-                busy = false
-            }
-        }
+            permission.launch(Manifest.permission.ACCESS_LOCAL_NETWORK)
+        } else if (health) flow.checkHealth() else flow.submit()
     }
-
+    BackHandler(state.screen != Screen.MATERIAL || state.busy) { flow.back() }
     Scaffold(modifier = Modifier.fillMaxSize()) { insets ->
         Column(
-            modifier = Modifier.padding(insets).padding(16.dp)
-                .verticalScroll(rememberScrollState()),
+            Modifier.padding(insets).imePadding().padding(16.dp)
+                .fillMaxSize().verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text("ИИ-помощник для учёбы", style = MaterialTheme.typography.headlineSmall)
-            Text("Краткий конспект", style = MaterialTheme.typography.titleMedium)
-            OutlinedTextField(
-                value = material,
-                onValueChange = { material = it },
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text("Учебный текст") },
-                supportingText = { Text("${material.codePointCount(0, material.length)} / 10 000 символов") },
-                minLines = 5,
-                maxLines = 10,
-                enabled = !busy
-            )
-            Button(onClick = { runRequest(false) }, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
-                Text("Отправить")
+            Text(when (state.screen) {
+                Screen.MATERIAL -> "Загрузка материала"
+                Screen.MODES -> "Выбор режима"
+                Screen.RESULT -> "Результат"
+            }, style = MaterialTheme.typography.headlineSmall)
+            when (state.screen) {
+                Screen.MATERIAL -> {
+                    Text("Вставьте учебный текст. Загрузка файлов появится позже.")
+                    OutlinedTextField(
+                        value = state.material, onValueChange = flow::editMaterial,
+                        modifier = Modifier.fillMaxWidth(), label = { Text("Учебный текст") },
+                        supportingText = { Text("${state.material.codePointCount(0, state.material.length)} / 10 000 символов") },
+                        minLines = 5, maxLines = 10, enabled = !state.busy
+                    )
+                    Button(onClick = flow::showModes, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) {
+                        Text("Выбрать режим")
+                    }
+                    OutlinedButton(onClick = { request(true) }, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) {
+                        Text("Проверить связь с сервером")
+                    }
+                }
+                Screen.MODES -> {
+                    Text("Введённый текст · ${state.material.codePointCount(0, state.material.length)} символов")
+                    if (!state.busy && state.error == null) {
+                        Column(Modifier.selectableGroup()) {
+                            ProcessingMode.entries.forEach { mode ->
+                                Row(
+                                    Modifier.fillMaxWidth().selectable(
+                                        selected = state.mode == mode, enabled = mode.available,
+                                        role = Role.RadioButton, onClick = { flow.selectMode(mode) }
+                                    ).padding(vertical = 10.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    RadioButton(selected = state.mode == mode, onClick = null, enabled = mode.available)
+                                    Text(mode.title + if (mode.available) "" else " — скоро",
+                                        color = if (mode.available) MaterialTheme.colorScheme.onSurface
+                                        else MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+                        }
+                        Text("Сейчас доступен краткий конспект.", style = MaterialTheme.typography.bodySmall)
+                        Button(onClick = { request(false) }, modifier = Modifier.fillMaxWidth()) { Text("Создать") }
+                    }
+                }
+                Screen.RESULT -> {
+                    Text(state.mode.title, style = MaterialTheme.typography.titleMedium)
+                    Text(state.result, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
+                    Button(onClick = {
+                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                        clipboard.setPrimaryClip(ClipData.newPlainText("Результат", state.result))
+                        copied = true
+                    }, modifier = Modifier.fillMaxWidth()) { Text(if (copied) "Скопировано" else "Копировать") }
+                    OutlinedButton(onClick = flow::back, modifier = Modifier.fillMaxWidth()) { Text("Режимы") }
+                }
             }
-            OutlinedButton(onClick = { runRequest(true) }, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
-                Text("Проверить связь с сервером")
-            }
-            if (busy) {
+            if (state.busy) {
                 CircularProgressIndicator()
-                Text("Ожидаем ответ сервера…")
+                Text(if (state.screen == Screen.MATERIAL) "Проверяем связь…" else "Обрабатываем · ${state.mode.title}")
+                if (longWait) Text("Обработка занимает больше времени. Можно подождать или отменить ожидание.")
+                OutlinedButton(onClick = flow::cancel, modifier = Modifier.fillMaxWidth()) { Text("Отмена") }
             }
-            if (message.isNotEmpty()) {
-                Text(
-                    text = message,
-                    color = if (error) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }
-                )
+            state.error?.let { error ->
+                Text(error, color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
+                if (state.screen == Screen.MODES && !state.busy) {
+                    Button(onClick = { request(false) }, modifier = Modifier.fillMaxWidth()) { Text("Повторить") }
+                }
+            }
+            state.notice?.let { Text(it, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }) }
+            if (state.screen == Screen.MODES && !state.busy) {
+                OutlinedButton(onClick = flow::back, modifier = Modifier.fillMaxWidth()) { Text("Назад") }
             }
         }
     }
