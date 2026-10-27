@@ -24,88 +24,74 @@
 | Работа с Figma | [docs/FIGMA_GUIDE.md](docs/FIGMA_GUIDE.md) |
 | Как участвовать | [CONTRIBUTING.md](CONTRIBUTING.md) |
 | Definition of Done | [docs/DEFINITION_OF_DONE.md](docs/DEFINITION_OF_DONE.md) |
+
 ## Быстрый старт
 
-### 1. Что установить
+1. Установить Git и Android Studio. В SDK Manager установить Android SDK Platform 37,
+   Platform-Tools и, для эмулятора, Android Emulator с системным образом.
+2. Клонировать репозиторий и открыть папку `mobile` через File → Open:
 
-- **Android Studio** (последняя стабильная версия) с developer.android.com/studio. Внутри уже есть Android SDK, эмулятор и свой JDK, отдельно ничего ставить не нужно.
-- **Git** (в Windows удобно через Git Bash).
-- Для проверки связи с сервером: **JDK 21** (Temurin) и backend, см. README в [backend](https://github.com/study-ai-assistant/backend).
+   ```text
+   git clone https://github.com/study-ai-assistant/mobile.git
+   cd mobile
+   ```
 
-### 2. Клонировать и открыть проект
+3. Дождаться Gradle Sync. Проект использует Gradle wrapper 9.6.0 и JDK 25 для
+   Gradle daemon (при необходимости загружается автоматически). Путь к Android SDK
+   хранится в локальном `local.properties`, который не добавляется в Git.
+4. Создать устройство в Device Manager либо подключить телефон с USB debugging.
+   Выбрать конфигурацию `app` и нажать Run. Ожидаемый результат: экран
+   «Загрузка материала» с полем текста и проверкой связи с сервером.
+   Кнопка «Выбрать режим» открывает режимы, «Создать» отправляет текст;
+   после успешной обработки открывается результат.
+   Переходы описаны в [docs/SCREENS.md](docs/SCREENS.md).
 
-```bash
-git clone https://github.com/study-ai-assistant/mobile.git
-cd mobile
+Проверка экрана и ограничения backend: [docs/SERVER_SCREEN.md](docs/SERVER_SCREEN.md).
+
+Проверка из корня проекта:
+
+```powershell
+# Windows / PowerShell
+.\gradlew.bat assembleDebug testDebugUnitTest lintDebug
 ```
 
-В Android Studio: **File → Open**, выбрать папку `mobile`. Дождаться окончания **Gradle Sync** (первый раз долго, нужен интернет). Если синхронизация оборвалась с ошибкой сети, нажать **Try Again** или **File → Sync Project with Gradle Files**.
-
-### 3. Запустить на эмуляторе
-
-1. Открыть **Device Manager** и создать эмулятор (например, Medium Phone).
-2. Выбрать конфигурацию **app** и эмулятор, нажать зелёную кнопку **Run**.
-3. Ожидаемый результат: экран «Загрузка материала» с полем текста и проверкой связи. Кнопка «Выбрать режим» открывает режимы, «Создать» отправляет текст; после успешной обработки открывается результат. Переходы описаны в [docs/SCREENS.md](docs/SCREENS.md).
-
-Проверка нового экрана и ограничения текущего backend: [docs/SERVER_SCREEN.md](docs/SERVER_SCREEN.md).
-
-Если эмулятор не стартует, проверьте, что в BIOS включена виртуализация (Intel VT-x / AMD-V).
-
-### 4. Запустить backend (для проверки связи)
-
-Инструкция в README backend (ветка `feature/server-base`). Кратко:
-
 ```bash
-cd backend
-git checkout feature/server-base
-cp .env.example .env
-./mvnw.cmd spring-boot:run
+# macOS / Linux
+./gradlew assembleDebug testDebugUnitTest lintDebug
 ```
 
-Проверка в браузере: `http://localhost:8080/health` должен вернуть `{"status":"ok"}`.
+APK: `app/build/outputs/apk/debug/app-debug.apk`.
 
-### 5. Адрес сервера из приложения
-
-| Где запущено приложение | Адрес сервера |
-|---|---|
-| Android-эмулятор | `http://10.0.2.2:8080` |
-| Физический телефон | `http://<IP-компьютера>:8080` (одна Wi-Fi сеть, порт открыт в брандмауэре) |
-
-`localhost` внутри эмулятора или телефона указывает на само устройство, а не на компьютер.
-
-Для сетевых запросов нужно разрешение `android.permission.INTERNET` в `AndroidManifest.xml`. Обычный HTTP (без шифрования) Android по умолчанию блокирует, поэтому его нужно разрешить **только в debug-конфигурации** для локальной разработки.
-
-### 6. Частые проблемы
-
-| Проблема | Что делать |
-|---|---|
-| `handshake` / не качаются зависимости | Повторить Sync, проверить VPN и антивирус |
-| Эмулятор не запускается | Включить виртуализацию в BIOS |
-| Приложение не видит сервер | Использовать `10.0.2.2`, проверить, что backend запущен |
-| В Git попал `local.properties` | Он должен быть в `.gitignore`, убрать из индекса: `git restore --staged local.properties` |
-## Быстрый старт
-
-> **Будет заполнен после выбора стека.**
-
-Подробная инструкция появится в wiki: [Сборка и запуск](https://github.com/study-ai-assistant/mobile/wiki/Сборка-и-запуск).
+Подробная [инструкция установки, запуска и решения проблем](docs/SETUP.md)
+описывает Windows/macOS/Linux, телефон, эмулятор и подключение к backend.
+Страница команды: [wiki «Сборка и запуск»](https://github.com/study-ai-assistant/mobile/wiki/Сборка-и-запуск).
 
 ## Структура репозитория
 
-```
+```text
 mobile/
-├── .github/
-│   ├── ISSUE_TEMPLATE/     # шаблоны задач и ошибок
-│   ├── workflows/          # CI (пока заготовка)
-│   ├── CODEOWNERS
-│   └── pull_request_template.md
-├── docs/
-│   ├── DEFINITION_OF_DONE.md
-│   └── FIGMA_GUIDE.md      # правила работы с макетами
+├── app/
+│   ├── build.gradle.kts       # Android-модуль: SDK, зависимости, типы сборки
+│   └── src/
+│       ├── main/             # Manifest, Kotlin/Compose-код и ресурсы
+│       ├── test/             # Локальные JVM-тесты
+│       └── androidTest/      # Тесты на устройстве/эмуляторе
+├── gradle/
+│   ├── libs.versions.toml     # Версии плагинов и библиотек
+│   ├── gradle-daemon-jvm.properties # JDK для Gradle daemon
+│   └── wrapper/              # Версия и загрузчик Gradle
+├── .github/                  # Шаблоны задач/PR, CODEOWNERS, CI
+├── docs/                     # Инструкции, правила дизайна, Definition of Done
+├── build.gradle.kts          # Плагины проекта
+├── settings.gradle.kts       # Репозитории зависимостей и модули
+├── gradle.properties         # Общие настройки Gradle
+├── gradlew / gradlew.bat      # Запуск Gradle на Unix / Windows
 ├── CONTRIBUTING.md
 └── README.md
 ```
 
-После выбора стека добавятся папки с исходным кодом приложения и тестами — структура будет описана здесь.
+Исходный пакет: `app/src/main/java/ru/studyassistant/mobile`.
+В нём `MainActivity.kt` задаёт стартовый экран, `ui/theme` — тему Compose.
 
 ## Участники
 
