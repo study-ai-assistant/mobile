@@ -16,7 +16,12 @@ fun validateMaterial(text: String): String? = when {
 }
 
 /** Блокирующий HTTP-клиент: вызывать только из Dispatchers.IO. POST не повторяется. */
-class StudyApi(private val baseUrl: String = ServerConfig.BASE_URL) {
+class StudyApi(
+    private val baseUrl: String = ServerConfig.BASE_URL,
+    private val openConnection: (URL) -> HttpURLConnection = {
+        it.openConnection() as HttpURLConnection
+    }
+) {
     fun health(): String {
         val response = request("GET", "/health")
         if (response.optString("status") != "ok") {
@@ -38,11 +43,12 @@ class StudyApi(private val baseUrl: String = ServerConfig.BASE_URL) {
     }
 
     private fun request(method: String, path: String, body: JSONObject? = null): JSONObject {
-        val connection = URL(baseUrl.trimEnd('/') + path).openConnection() as HttpURLConnection
+        val connection = openConnection(URL(baseUrl.trimEnd('/') + path))
         try {
             connection.requestMethod = method
-            connection.connectTimeout = 10_000
-            connection.readTimeout = if (method == "POST") 90_000 else 10_000
+            connection.connectTimeout = ServerConfig.CONNECT_TIMEOUT_MS
+            connection.readTimeout = if (method == "POST") ServerConfig.PROCESS_TIMEOUT_MS
+                else ServerConfig.CONNECT_TIMEOUT_MS
             connection.instanceFollowRedirects = false
             connection.setRequestProperty("Accept", "application/json, application/problem+json")
             if (body != null) {
@@ -53,24 +59,16 @@ class StudyApi(private val baseUrl: String = ServerConfig.BASE_URL) {
                 connection.outputStream.use { it.write(payload) }
             }
             val status = connection.responseCode
-            if (status != 200) throw ApiException(when (status) {
-                400 -> "Сервер отклонил запрос. Проверьте текст и выбранный режим."
-                404, 501 -> if (method == "POST")
-                    "Обработка текста на сервере пока не подключена. Используйте проверку связи."
-                    else "Эндпоинт /health не найден. Проверьте адрес сервера."
-                413 -> "Текст слишком большой для сервера. Сократите материал."
-                502 -> "Сервис обработки текста временно недоступен. Попробуйте позже."
-                else -> "Ошибка сервера (HTTP $status). Попробуйте позже."
-            })
+            if (status != 200) throw ApiException(ApiMessages.http(status, method == "POST"))
             return connection.inputStream.bufferedReader(Charsets.UTF_8).use { JSONObject(it.readText()) }
         } catch (e: ApiException) {
             throw e
         } catch (_: SocketTimeoutException) {
-            throw ApiException("Сервер не ответил вовремя. Попробуйте ещё раз позже.")
+            throw ApiException(ApiMessages.TIMEOUT)
         } catch (_: JSONException) {
-            throw ApiException("Сервер вернул ответ в неверном формате.")
+            throw ApiException(ApiMessages.INVALID_RESPONSE)
         } catch (_: IOException) {
-            throw ApiException("Не удалось связаться с сервером. Проверьте сеть и запуск backend.")
+            throw ApiException(ApiMessages.CONNECTION)
         } finally {
             connection.disconnect()
         }
