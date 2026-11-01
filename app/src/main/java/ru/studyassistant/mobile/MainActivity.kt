@@ -71,13 +71,13 @@ fun StudyApp(flow: StudyFlow) {
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
         flow.permissionMessage(it)
     }
-    fun request(health: Boolean) {
+    fun request(health: Boolean, retry: Boolean = false) {
         if (Build.VERSION.SDK_INT >= 37 && ContextCompat.checkSelfPermission(
                 context, Manifest.permission.ACCESS_LOCAL_NETWORK
             ) != PackageManager.PERMISSION_GRANTED
         ) {
             permission.launch(Manifest.permission.ACCESS_LOCAL_NETWORK)
-        } else if (health) flow.checkHealth() else flow.submit()
+        } else if (retry) flow.retry() else if (health) flow.checkHealth() else flow.submit()
     }
     BackHandler(state.screen != Screen.MATERIAL || state.busy) { flow.back() }
     Scaffold(modifier = Modifier.fillMaxSize()) { insets ->
@@ -127,7 +127,10 @@ fun StudyApp(flow: StudyFlow) {
                             }
                         }
                         Text("Сейчас доступен краткий конспект.", style = MaterialTheme.typography.bodySmall)
-                        Button(onClick = { request(false) }, modifier = Modifier.fillMaxWidth()) { Text("Создать") }
+                    }
+                    if (state.error == null || !state.canRetry) {
+                        Button(onClick = { request(false) }, enabled = !state.busy,
+                            modifier = Modifier.fillMaxWidth()) { Text("Создать") }
                     }
                 }
                 Screen.RESULT -> {
@@ -150,8 +153,8 @@ fun StudyApp(flow: StudyFlow) {
             state.error?.let { error ->
                 Text(error, color = MaterialTheme.colorScheme.error,
                     modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
-                if (state.screen == Screen.MODES && !state.busy) {
-                    Button(onClick = { request(false) }, modifier = Modifier.fillMaxWidth()) { Text("Повторить") }
+                if (state.canRetry && !state.busy) {
+                    Button(onClick = { request(false, retry = true) }, modifier = Modifier.fillMaxWidth()) { Text("Повторить") }
                 }
             }
             state.notice?.let { Text(it, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }) }

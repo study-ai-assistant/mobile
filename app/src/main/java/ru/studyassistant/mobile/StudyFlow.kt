@@ -27,7 +27,8 @@ data class StudyState(
     val busy: Boolean = false,
     val result: String = "",
     val error: String? = null,
-    val notice: String? = null
+    val notice: String? = null,
+    val canRetry: Boolean = false
 )
 
 /** Все методы вызываются на UI-потоке; зависимости запросов подменяются в тестах. */
@@ -40,10 +41,12 @@ class StudyFlow(
     val state: StateFlow<StudyState> = mutableState.asStateFlow()
     private var job: Job? = null
     private var generation = 0
+    private data class Request(val text: String, val mode: ProcessingMode, val healthOnly: Boolean)
+    private var lastRequest: Request? = null
 
     fun editMaterial(text: String) {
         if (!state.value.busy) mutableState.value = state.value.copy(
-            material = text, result = "", error = null, notice = null
+            material = text, result = "", error = null, notice = null, canRetry = false
         )
     }
 
@@ -52,13 +55,13 @@ class StudyFlow(
         val error = validateMaterial(state.value.material)
         mutableState.value = state.value.copy(
             screen = if (error == null) Screen.MODES else Screen.MATERIAL,
-            error = error, notice = null
+            error = error, notice = null, canRetry = false
         )
     }
 
     fun selectMode(mode: ProcessingMode) {
         if (!state.value.busy && mode.available) {
-            mutableState.value = state.value.copy(mode = mode, error = null, notice = null)
+            mutableState.value = state.value.copy(mode = mode, error = null, notice = null, canRetry = false)
         }
     }
 
@@ -69,24 +72,30 @@ class StudyFlow(
         )
     }
 
-    fun submit() = request(healthOnly = false)
-    fun checkHealth() = request(healthOnly = true)
+    fun submit() = request(Request(state.value.material, state.value.mode, healthOnly = false))
+    fun checkHealth() = request(Request(state.value.material, state.value.mode, healthOnly = true))
 
-    private fun request(healthOnly: Boolean) {
+    fun retry() {
+        if (state.value.canRetry && !state.value.busy) lastRequest?.let { request(it) }
+    }
+
+    private fun request(request: Request) {
+        val healthOnly = request.healthOnly
         val submitted = state.value
         if (submitted.busy) return
         if (!healthOnly) {
-            val error = validateMaterial(submitted.material)
-            if (error != null || !submitted.mode.available) {
-                mutableState.value = submitted.copy(error = error ?: "Режим пока недоступен.")
+            val error = validateMaterial(request.text)
+            if (error != null || !request.mode.available) {
+                mutableState.value = submitted.copy(error = error ?: "Режим пока недоступен.", canRetry = false)
                 return
             }
         }
         val requestGeneration = ++generation
-        mutableState.value = submitted.copy(busy = true, error = null, notice = null)
+        lastRequest = request
+        mutableState.value = submitted.copy(busy = true, error = null, notice = null, canRetry = false)
         job = scope.launch {
             try {
-                val response = if (healthOnly) health() else process(submitted.material, submitted.mode)
+                val response = if (healthOnly) health() else process(request.text, request.mode)
                 if (generation == requestGeneration) mutableState.value = state.value.copy(
                     screen = if (healthOnly) submitted.screen else Screen.RESULT,
                     result = if (healthOnly) submitted.result else response,
@@ -96,7 +105,9 @@ class StudyFlow(
                 throw e
             } catch (e: ApiException) {
                 if (generation == requestGeneration) {
-                    mutableState.value = state.value.copy(error = e.message ?: "Не удалось выполнить запрос.")
+                    mutableState.value = state.value.copy(
+                        error = e.message ?: "Не удалось выполнить запрос.", canRetry = true
+                    )
                 }
             } finally {
                 if (generation == requestGeneration) mutableState.value = state.value.copy(busy = false)
@@ -109,7 +120,7 @@ class StudyFlow(
         generation++
         job?.cancel()
         mutableState.value = state.value.copy(
-            busy = false, error = null,
+            busy = false, error = null, canRetry = false,
             notice = "Ожидание отменено. Сервер может продолжать обработку."
         )
     }
@@ -118,7 +129,7 @@ class StudyFlow(
         if (state.value.busy) { cancel(); return }
         mutableState.value = state.value.copy(
             screen = if (state.value.screen == Screen.RESULT) Screen.MODES else Screen.MATERIAL,
-            error = null, notice = null
+            error = null, notice = null, canRetry = false
         )
     }
 }

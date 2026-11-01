@@ -53,7 +53,9 @@ class StudyFlowTest {
 
     @Test fun failureKeepsInputAndRetriesOnlyOnRequest() = runBlocking {
         var calls = 0
-        val flow = StudyFlow(this, { _, _ ->
+        val requests = mutableListOf<Pair<String, ProcessingMode>>()
+        val flow = StudyFlow(this, { text, mode ->
+            requests += text to mode
             if (++calls == 1) throw ApiException("Сервер недоступен")
             "Результат"
         }, { "ok" })
@@ -64,11 +66,73 @@ class StudyFlowTest {
         assertEquals(Screen.MODES, flow.state.value.screen)
         assertEquals("Сервер недоступен", flow.state.value.error)
         assertFalse(flow.state.value.busy)
+        assertTrue(flow.state.value.canRetry)
         assertEquals(1, calls)
-        flow.submit()
+        flow.retry()
+        flow.retry()
         yield()
         assertEquals(Screen.RESULT, flow.state.value.screen)
         assertEquals(2, calls)
+        assertEquals(requests[0], requests[1])
+        assertFalse(flow.state.value.canRetry)
+    }
+
+    @Test fun loadingBlocksDuplicateRequestsAndEditing() = runBlocking {
+        val response = CompletableDeferred<String>()
+        var calls = 0
+        val flow = StudyFlow(this, { _, _ -> calls++; response.await() }, { "ok" })
+        flow.editMaterial("Исходный материал")
+        flow.showModes()
+        flow.submit()
+        yield()
+        assertTrue(flow.state.value.busy)
+        flow.editMaterial("Другой материал")
+        flow.submit()
+        flow.checkHealth()
+        flow.retry()
+        yield()
+        assertEquals(1, calls)
+        assertEquals("Исходный материал", flow.state.value.material)
+        response.complete("Ответ")
+        yield()
+        assertFalse(flow.state.value.busy)
+    }
+
+    @Test fun editingAfterErrorDiscardsRetryAndNewSubmitUsesNewMaterial() = runBlocking {
+        val requests = mutableListOf<String>()
+        val flow = StudyFlow(this, { text, _ ->
+            requests += text
+            throw ApiException("Нет связи")
+        }, { "ok" })
+        flow.editMaterial("Первый текст")
+        flow.showModes()
+        flow.submit()
+        yield()
+        flow.back()
+        flow.editMaterial("Новый текст")
+        flow.retry()
+        yield()
+        assertEquals(listOf("Первый текст"), requests)
+        flow.showModes()
+        flow.submit()
+        yield()
+        assertEquals(listOf("Первый текст", "Новый текст"), requests)
+    }
+
+    @Test fun retryOfHealthDoesNotSendText() = runBlocking {
+        var calls = 0
+        val flow = StudyFlow(this, { _, _ -> error("POST не должен вызываться") }, {
+            if (++calls == 1) throw ApiException("Нет связи") else "ok"
+        })
+        flow.checkHealth()
+        yield()
+        assertTrue(flow.state.value.canRetry)
+        flow.retry()
+        yield()
+        assertEquals(2, calls)
+        assertEquals(Screen.MATERIAL, flow.state.value.screen)
+        assertEquals("ok", flow.state.value.notice)
+        assertFalse(flow.state.value.canRetry)
     }
 
     @Test fun cancelledResponseCannotOverwriteNextRequest() = runBlocking {

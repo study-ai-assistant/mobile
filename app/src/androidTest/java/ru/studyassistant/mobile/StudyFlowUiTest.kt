@@ -53,6 +53,7 @@ class StudyFlowUiTest {
             flow.showModes()
             flow.submit()
         }
+        compose.onNodeWithText("Создать").assertIsNotEnabled()
         compose.onNodeWithText("Отмена").performScrollTo().performClick()
         compose.onNodeWithText("Создать").assertExists()
         compose.runOnIdle { flow.submit() }
