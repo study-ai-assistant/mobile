@@ -1,9 +1,6 @@
 package ru.studyassistant.mobile
 
 import android.Manifest
-import android.content.ClipData
-import android.content.ClipboardManager
-import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -62,7 +59,6 @@ class MainActivity : ComponentActivity() {
 fun StudyApp(flow: StudyFlow) {
     val state by flow.state.collectAsState()
     val context = LocalContext.current
-    var copied by remember(state.result, state.screen) { mutableStateOf(false) }
     var longWait by remember { mutableStateOf(false) }
     LaunchedEffect(state.busy) {
         longWait = false
@@ -83,7 +79,7 @@ fun StudyApp(flow: StudyFlow) {
     Scaffold(modifier = Modifier.fillMaxSize()) { insets ->
         Column(
             Modifier.padding(insets).imePadding().padding(16.dp)
-                .fillMaxSize().verticalScroll(rememberScrollState()),
+                .fillMaxSize().then(if (state.screen == Screen.RESULT) Modifier else Modifier.verticalScroll(rememberScrollState())),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Text(when (state.screen) {
@@ -134,14 +130,8 @@ fun StudyApp(flow: StudyFlow) {
                     }
                 }
                 Screen.RESULT -> {
-                    Text(state.mode.title, style = MaterialTheme.typography.titleMedium)
-                    Text(state.result, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
-                    Button(onClick = {
-                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                        clipboard.setPrimaryClip(ClipData.newPlainText("Результат", state.result))
-                        copied = true
-                    }, modifier = Modifier.fillMaxWidth()) { Text(if (copied) "Скопировано" else "Копировать") }
-                    OutlinedButton(onClick = flow::back, modifier = Modifier.fillMaxWidth()) { Text("Режимы") }
+                    ResultContent(state.result, state.resultMode.title, flow::back,
+                        flow::newMaterial, Modifier.weight(1f))
                 }
             }
             if (state.busy) {
