@@ -41,7 +41,8 @@ class StudyViewModel : ViewModel() {
     private val api = StudyApi()
     val flow = StudyFlow(scope,
         process = { text, mode -> withContext(Dispatchers.IO) { api.process(text, mode.name) } },
-        health = { withContext(Dispatchers.IO) { api.health() } }
+        health = { withContext(Dispatchers.IO) { api.health() } },
+        loadModes = { withContext(Dispatchers.IO) { api.modes() } }
     )
     override fun onCleared() { scope.cancel() }
 }
@@ -67,13 +68,13 @@ fun StudyApp(flow: StudyFlow) {
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
         flow.permissionMessage(it)
     }
-    fun request(health: Boolean, retry: Boolean = false) {
+    fun request(health: Boolean, retry: Boolean = false, modes: Boolean = false) {
         if (Build.VERSION.SDK_INT >= 37 && ContextCompat.checkSelfPermission(
                 context, Manifest.permission.ACCESS_LOCAL_NETWORK
             ) != PackageManager.PERMISSION_GRANTED
         ) {
             permission.launch(Manifest.permission.ACCESS_LOCAL_NETWORK)
-        } else if (retry) flow.retry() else if (health) flow.checkHealth() else flow.submit()
+        } else if (retry) flow.retry() else if (modes) flow.showModes() else if (health) flow.checkHealth() else flow.submit()
     }
     BackHandler(state.screen != Screen.MATERIAL || state.busy) { flow.back() }
     Scaffold(modifier = Modifier.fillMaxSize()) { insets ->
@@ -96,7 +97,7 @@ fun StudyApp(flow: StudyFlow) {
                         supportingText = { Text("${state.material.codePointCount(0, state.material.length)} / 10 000 символов") },
                         minLines = 5, maxLines = 10, enabled = !state.busy
                     )
-                    Button(onClick = flow::showModes, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) {
+                    Button(onClick = { request(false, modes = true) }, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) {
                         Text("Выбрать режим")
                     }
                     OutlinedButton(onClick = { request(true) }, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) {
@@ -105,26 +106,30 @@ fun StudyApp(flow: StudyFlow) {
                 }
                 Screen.MODES -> {
                     Text("Введённый текст · ${state.material.codePointCount(0, state.material.length)} символов")
-                    if (!state.busy && state.error == null) {
+                    state.modesError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                    if (!state.modesLoaded && !state.busy) {
+                        OutlinedButton(onClick = { request(false, modes = true) }) { Text("Загрузить режимы снова") }
+                    }
+                    if (!state.busy && state.error == null && state.modesLoaded) {
                         Column(Modifier.selectableGroup()) {
-                            ProcessingMode.entries.forEach { mode ->
+                            state.modes.forEach { mode ->
                                 Row(
                                     Modifier.fillMaxWidth().selectable(
-                                        selected = state.mode == mode, enabled = mode.available,
+                                        selected = state.mode == mode, enabled = true,
                                         role = Role.RadioButton, onClick = { flow.selectMode(mode) }
                                     ).padding(vertical = 10.dp),
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    RadioButton(selected = state.mode == mode, onClick = null, enabled = mode.available)
-                                    Text(mode.title + if (mode.available) "" else " — скоро",
-                                        color = if (mode.available) MaterialTheme.colorScheme.onSurface
-                                        else MaterialTheme.colorScheme.onSurfaceVariant)
+                                    RadioButton(selected = state.mode == mode, onClick = null, enabled = true)
+                                    Column {
+                                        Text(mode.title)
+                                        Text(mode.description, style = MaterialTheme.typography.bodySmall)
+                                    }
                                 }
                             }
                         }
-                        Text("Сейчас доступен краткий конспект.", style = MaterialTheme.typography.bodySmall)
                     }
-                    if (state.error == null || !state.canRetry) {
+                    if (state.modesLoaded && (state.error == null || !state.canRetry)) {
                         Button(onClick = { request(false) }, enabled = !state.busy,
                             modifier = Modifier.fillMaxWidth()) { Text("Создать") }
                     }
@@ -136,7 +141,7 @@ fun StudyApp(flow: StudyFlow) {
             }
             if (state.busy) {
                 CircularProgressIndicator()
-                Text(if (state.screen == Screen.MATERIAL) "Проверяем связь…" else "Обрабатываем · ${state.mode.title}")
+                Text(if (state.loadingModes) "Загружаем режимы…" else if (state.screen == Screen.MATERIAL) "Проверяем связь…" else "Обрабатываем · ${state.mode.title}")
                 if (longWait) Text("Обработка занимает больше времени. Можно подождать или отменить ожидание.")
                 OutlinedButton(onClick = flow::cancel, modifier = Modifier.fillMaxWidth()) { Text("Отмена") }
             }
