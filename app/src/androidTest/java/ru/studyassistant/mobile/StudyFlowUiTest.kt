@@ -30,7 +30,8 @@ class StudyFlowUiTest {
         compose.setContent {
             val scope = rememberCoroutineScope()
             flow = androidx.compose.runtime.remember {
-                StudyFlow(scope, { _, _ -> "Проверочный конспект" }, { "ok" })
+                StudyFlow(scope, { _, _ -> "Проверочный конспект" }, { "ok" },
+                    loadModes = { ProcessingMode.entries })
             }
             AIStudyAssistantTheme { StudyApp(flow) }
         }
@@ -39,15 +40,15 @@ class StudyFlowUiTest {
         compose.onNodeWithText("Введите учебный текст.").assertExists()
         compose.onNodeWithText("Учебный текст").performTextInput("Материал для проверки")
         compose.onNodeWithText("Выбрать режим").performScrollTo().performClick()
-        compose.onNodeWithText("Подробный конспект — скоро").assertIsNotEnabled()
+        compose.onNodeWithText("Подробный конспект").assertExists()
         capture("modes")
         // Сетевое разрешение проверяется вручную; здесь проверяем навигацию с тестовым ответом.
         compose.runOnIdle { flow.submit() }
         compose.onNodeWithText("Проверочный конспект").assertExists()
         capture("result")
-        compose.onNodeWithText("Копировать").performScrollTo().performClick()
+        compose.onNodeWithText("Копировать").performClick()
         compose.onNodeWithText("Скопировано").assertExists()
-        compose.onNodeWithText("Режимы").performScrollTo().performClick()
+        compose.onNodeWithText("Режимы").performClick()
         compose.onNodeWithText("Назад").performScrollTo().performClick()
         compose.onNodeWithText("Учебный текст").assertTextContains("Материал для проверки")
     }

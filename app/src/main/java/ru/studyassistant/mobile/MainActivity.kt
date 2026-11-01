@@ -1,9 +1,6 @@
 package ru.studyassistant.mobile
 
 import android.Manifest
-import android.content.ClipData
-import android.content.ClipboardManager
-import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -43,7 +40,8 @@ class StudyViewModel : ViewModel() {
     private val api = StudyApi()
     val flow = StudyFlow(scope,
         process = { text, mode -> withContext(Dispatchers.IO) { api.process(text, mode.name) } },
-        health = { withContext(Dispatchers.IO) { api.health() } }
+        health = { withContext(Dispatchers.IO) { api.health() } },
+        loadModes = { withContext(Dispatchers.IO) { api.modes() } }
     )
     override fun onCleared() { scope.cancel() }
 }
@@ -61,7 +59,6 @@ class MainActivity : ComponentActivity() {
 fun StudyApp(flow: StudyFlow) {
     val state by flow.state.collectAsState()
     val context = LocalContext.current
-    var copied by remember(state.result, state.screen) { mutableStateOf(false) }
     var longWait by remember { mutableStateOf(false) }
     LaunchedEffect(state.busy) {
         longWait = false
@@ -70,19 +67,19 @@ fun StudyApp(flow: StudyFlow) {
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
         flow.permissionMessage(it)
     }
-    fun request(health: Boolean, retry: Boolean = false) {
+    fun request(health: Boolean, retry: Boolean = false, modes: Boolean = false) {
         if (Build.VERSION.SDK_INT >= 37 && ContextCompat.checkSelfPermission(
                 context, Manifest.permission.ACCESS_LOCAL_NETWORK
             ) != PackageManager.PERMISSION_GRANTED
         ) {
             permission.launch(Manifest.permission.ACCESS_LOCAL_NETWORK)
-        } else if (retry) flow.retry() else if (health) flow.checkHealth() else flow.submit()
+        } else if (retry) flow.retry() else if (modes) flow.showModes() else if (health) flow.checkHealth() else flow.submit()
     }
     BackHandler(state.screen != Screen.MATERIAL || state.busy) { flow.back() }
     Scaffold(modifier = Modifier.fillMaxSize()) { insets ->
         Column(
             Modifier.padding(insets).imePadding().padding(StudySpacing.screen)
-                .fillMaxSize().verticalScroll(rememberScrollState()),
+                .fillMaxSize().then(if (state.screen == Screen.RESULT) Modifier else Modifier.verticalScroll(rememberScrollState())),
             verticalArrangement = Arrangement.spacedBy(StudySpacing.screen)
         ) {
             Text(when (state.screen) {
@@ -101,7 +98,7 @@ fun StudyApp(flow: StudyFlow) {
                         minLines = 5, maxLines = 10, enabled = !state.busy,
                         colors = studyTextFieldColors(), shape = MaterialTheme.shapes.large
                     )
-                    StudyButton(onClick = flow::showModes, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) {
+                    StudyButton(onClick = { request(false, modes = true) }, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) {
                         Text("Выбрать режим")
                     }
                     OutlinedButton(onClick = { request(true) }, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) {
@@ -110,44 +107,42 @@ fun StudyApp(flow: StudyFlow) {
                 }
                 Screen.MODES -> {
                     Text("Введённый текст · ${state.material.codePointCount(0, state.material.length)} символов")
-                    if (!state.busy && state.error == null) {
+                    state.modesError?.let { ErrorMessage(it) }
+                    if (!state.modesLoaded && !state.busy) {
+                        OutlinedButton(onClick = { request(false, modes = true) }) { Text("Загрузить режимы снова") }
+                    }
+                    if (!state.busy && state.error == null && state.modesLoaded) {
                         Column(Modifier.selectableGroup()) {
-                            ProcessingMode.entries.forEach { mode ->
+                            state.modes.forEach { mode ->
                                 Row(
                                     Modifier.fillMaxWidth().selectable(
-                                        selected = state.mode == mode, enabled = mode.available,
+                                        selected = state.mode == mode, enabled = true,
                                         role = Role.RadioButton, onClick = { flow.selectMode(mode) }
                                     ).padding(vertical = StudySpacing.row),
                                     horizontalArrangement = Arrangement.spacedBy(StudySpacing.compact)
                                 ) {
-                                    RadioButton(selected = state.mode == mode, onClick = null, enabled = mode.available)
-                                    Text(mode.title + if (mode.available) "" else " — скоро",
-                                        color = if (mode.available) MaterialTheme.colorScheme.onSurface
-                                        else MaterialTheme.colorScheme.onSurfaceVariant)
+                                    RadioButton(selected = state.mode == mode, onClick = null, enabled = true)
+                                    Column {
+                                        Text(mode.title)
+                                        Text(mode.description, style = MaterialTheme.typography.bodySmall)
+                                    }
                                 }
                             }
                         }
-                        Text("Сейчас доступен краткий конспект.", style = MaterialTheme.typography.bodySmall)
                     }
-                    if (state.error == null || !state.canRetry) {
+                    if (state.modesLoaded && (state.error == null || !state.canRetry)) {
                         StudyButton(onClick = { request(false) }, enabled = !state.busy,
                             modifier = Modifier.fillMaxWidth()) { Text("Создать") }
                     }
                 }
                 Screen.RESULT -> {
-                    Text(state.mode.title, style = MaterialTheme.typography.titleMedium)
-                    Text(state.result, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
-                    StudyButton(onClick = {
-                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                        clipboard.setPrimaryClip(ClipData.newPlainText("Результат", state.result))
-                        copied = true
-                    }, modifier = Modifier.fillMaxWidth()) { Text(if (copied) "Скопировано" else "Копировать") }
-                    OutlinedButton(onClick = flow::back, modifier = Modifier.fillMaxWidth()) { Text("Режимы") }
+                    ResultContent(state.result, state.resultMode.title, flow::back,
+                        flow::newMaterial, Modifier.weight(1f))
                 }
             }
             if (state.busy) {
                 CircularProgressIndicator()
-                Text(if (state.screen == Screen.MATERIAL) "Проверяем связь…" else "Обрабатываем · ${state.mode.title}")
+                Text(if (state.loadingModes) "Загружаем режимы…" else if (state.screen == Screen.MATERIAL) "Проверяем связь…" else "Обрабатываем · ${state.mode.title}")
                 if (longWait) Text("Обработка занимает больше времени. Можно подождать или отменить ожидание.")
                 OutlinedButton(onClick = flow::cancel, modifier = Modifier.fillMaxWidth()) { Text("Отмена") }
             }
