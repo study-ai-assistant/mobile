@@ -25,7 +25,7 @@ class StudyFlowUiTest {
         compose.onNodeWithText("Введите учебный текст.").assertExists()
         compose.onNodeWithText("Учебный текст").performTextInput("Материал для проверки")
         compose.onNodeWithText("Выбрать режим").performScrollTo().performClick()
-        compose.onNodeWithText("Подробный конспект — скоро").assertIsNotEnabled()
+        compose.onNodeWithText("Подробный конспект").assertDoesNotExist()
         // Сетевое разрешение проверяется вручную; здесь проверяем навигацию с тестовым ответом.
         compose.runOnIdle { flow.submit() }
         compose.onNodeWithText("Проверочный конспект").assertExists()
