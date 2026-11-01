@@ -26,7 +26,6 @@ import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -37,7 +36,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import ru.studyassistant.mobile.api.StudyApi
-import ru.studyassistant.mobile.ui.theme.AIStudyAssistantTheme
+import ru.studyassistant.mobile.ui.theme.*
 
 class StudyViewModel : ViewModel() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -82,9 +81,9 @@ fun StudyApp(flow: StudyFlow) {
     BackHandler(state.screen != Screen.MATERIAL || state.busy) { flow.back() }
     Scaffold(modifier = Modifier.fillMaxSize()) { insets ->
         Column(
-            Modifier.padding(insets).imePadding().padding(16.dp)
+            Modifier.padding(insets).imePadding().padding(StudySpacing.screen)
                 .fillMaxSize().verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(StudySpacing.screen)
         ) {
             Text(when (state.screen) {
                 Screen.MATERIAL -> "Загрузка материала"
@@ -93,14 +92,16 @@ fun StudyApp(flow: StudyFlow) {
             }, style = MaterialTheme.typography.headlineSmall)
             when (state.screen) {
                 Screen.MATERIAL -> {
-                    Text("Вставьте учебный текст. Загрузка файлов появится позже.")
+                    Text("Вставьте учебный текст. Загрузка файлов появится позже.",
+                        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     OutlinedTextField(
                         value = state.material, onValueChange = flow::editMaterial,
                         modifier = Modifier.fillMaxWidth(), label = { Text("Учебный текст") },
                         supportingText = { Text("${state.material.codePointCount(0, state.material.length)} / 10 000 символов") },
-                        minLines = 5, maxLines = 10, enabled = !state.busy
+                        minLines = 5, maxLines = 10, enabled = !state.busy,
+                        colors = studyTextFieldColors(), shape = MaterialTheme.shapes.large
                     )
-                    Button(onClick = flow::showModes, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) {
+                    StudyButton(onClick = flow::showModes, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) {
                         Text("Выбрать режим")
                     }
                     OutlinedButton(onClick = { request(true) }, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) {
@@ -116,8 +117,8 @@ fun StudyApp(flow: StudyFlow) {
                                     Modifier.fillMaxWidth().selectable(
                                         selected = state.mode == mode, enabled = mode.available,
                                         role = Role.RadioButton, onClick = { flow.selectMode(mode) }
-                                    ).padding(vertical = 10.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ).padding(vertical = StudySpacing.row),
+                                    horizontalArrangement = Arrangement.spacedBy(StudySpacing.compact)
                                 ) {
                                     RadioButton(selected = state.mode == mode, onClick = null, enabled = mode.available)
                                     Text(mode.title + if (mode.available) "" else " — скоро",
@@ -129,14 +130,14 @@ fun StudyApp(flow: StudyFlow) {
                         Text("Сейчас доступен краткий конспект.", style = MaterialTheme.typography.bodySmall)
                     }
                     if (state.error == null || !state.canRetry) {
-                        Button(onClick = { request(false) }, enabled = !state.busy,
+                        StudyButton(onClick = { request(false) }, enabled = !state.busy,
                             modifier = Modifier.fillMaxWidth()) { Text("Создать") }
                     }
                 }
                 Screen.RESULT -> {
                     Text(state.mode.title, style = MaterialTheme.typography.titleMedium)
                     Text(state.result, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
-                    Button(onClick = {
+                    StudyButton(onClick = {
                         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                         clipboard.setPrimaryClip(ClipData.newPlainText("Результат", state.result))
                         copied = true
@@ -151,10 +152,10 @@ fun StudyApp(flow: StudyFlow) {
                 OutlinedButton(onClick = flow::cancel, modifier = Modifier.fillMaxWidth()) { Text("Отмена") }
             }
             state.error?.let { error ->
-                Text(error, color = MaterialTheme.colorScheme.error,
+                ErrorMessage(error,
                     modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
                 if (state.canRetry && !state.busy) {
-                    Button(onClick = { request(false, retry = true) }, modifier = Modifier.fillMaxWidth()) { Text("Повторить") }
+                    StudyButton(onClick = { request(false, retry = true) }, modifier = Modifier.fillMaxWidth()) { Text("Повторить") }
                 }
             }
             state.notice?.let { Text(it, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }) }
