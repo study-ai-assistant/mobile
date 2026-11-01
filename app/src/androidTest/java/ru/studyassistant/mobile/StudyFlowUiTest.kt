@@ -29,9 +29,9 @@ class StudyFlowUiTest {
         // Сетевое разрешение проверяется вручную; здесь проверяем навигацию с тестовым ответом.
         compose.runOnIdle { flow.submit() }
         compose.onNodeWithText("Проверочный конспект").assertExists()
-        compose.onNodeWithText("Копировать").performScrollTo().performClick()
+        compose.onNodeWithText("Копировать").performClick()
         compose.onNodeWithText("Скопировано").assertExists()
-        compose.onNodeWithText("Режимы").performScrollTo().performClick()
+        compose.onNodeWithText("Режимы").performClick()
         compose.onNodeWithText("Назад").performScrollTo().performClick()
         compose.onNodeWithText("Учебный текст").assertTextContains("Материал для проверки")
     }

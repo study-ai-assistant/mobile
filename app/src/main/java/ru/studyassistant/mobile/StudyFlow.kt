@@ -26,6 +26,7 @@ data class StudyState(
     val mode: ProcessingMode = ProcessingMode.SHORT_SUMMARY,
     val busy: Boolean = false,
     val result: String = "",
+    val resultMode: ProcessingMode = ProcessingMode.SHORT_SUMMARY,
     val error: String? = null,
     val notice: String? = null,
     val canRetry: Boolean = false
@@ -99,6 +100,7 @@ class StudyFlow(
                 if (generation == requestGeneration) mutableState.value = state.value.copy(
                     screen = if (healthOnly) submitted.screen else Screen.RESULT,
                     result = if (healthOnly) submitted.result else response,
+                    resultMode = if (healthOnly) submitted.resultMode else submitted.mode,
                     notice = if (healthOnly) response else null
                 )
             } catch (e: CancellationException) {
@@ -123,6 +125,10 @@ class StudyFlow(
             busy = false, error = null, canRetry = false,
             notice = "Ожидание отменено. Сервер может продолжать обработку."
         )
+    }
+
+    fun newMaterial() {
+        if (!state.value.busy) mutableState.value = StudyState()
     }
 
     fun back() {
