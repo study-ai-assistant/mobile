@@ -1,6 +1,5 @@
 # ЗАГОТОВКА CI.
-# Сейчас проверяет только наличие обязательных файлов.
-# Линтер и тесты закомментированы: включить после выбора стека (см. docs/STACK_PROPOSAL.md в backend).
+#CI: проверка обязательных файлов, линтер (lintDebug) и юнит-тесты (testDebugUnitTest).
 
 name: CI
 
@@ -32,25 +31,42 @@ jobs:
           done
           exit $missing
 
-  # ВКЛЮЧИТЬ ПОСЛЕ ВЫБОРА СТЕКА: линтер.
-  # Раскомментировать и заменить шаги установки и запуска на команды выбранного стека.
-  # lint:
-  #   name: Линтер
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v5
-  #     # - name: Установить окружение
-  #     #   uses: <action для выбранного стека>
-  #     # - name: Запустить линтер
-  #     #   run: <команда линтера>
+  lint:
+    name: Линтер
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
 
-  # ВКЛЮЧИТЬ ПОСЛЕ ВЫБОРА СТЕКА: тесты.
-  # tests:
-  #   name: Тесты
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v5
-  #     # - name: Установить окружение
-  #     #   uses: <action для выбранного стека>
-  #     # - name: Запустить тесты
-  #     #   run: <команда тестов>
+      - name: Установить JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Настроить Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Запустить линтер
+        run: |
+          chmod +x gradlew
+          ./gradlew lintDebug
+
+  tests:
+    name: Тесты
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Установить JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Настроить Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Запустить тесты
+        run: |
+          chmod +x gradlew
+          ./gradlew testDebugUnitTest
