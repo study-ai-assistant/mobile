@@ -54,7 +54,38 @@ class StudyFlow(
     val state: StateFlow<StudyState> = mutableState.asStateFlow()
     private var job: Job? = null
     private var generation = 0
-    private data class Request(val text: String, val fileName: String?, val fileBytes: ByteArray?, val mode: ProcessingMode, val healthOnly: Boolean)
+    private data class Request(
+        val text: String,
+        val fileName: String? = null,
+        val fileBytes: ByteArray? = null,
+        val mode: ProcessingMode,
+        val healthOnly: Boolean = false
+    ) {
+        override fun equals(other: Any?): Boolean {
+            if (this === other) return true
+            if (other !is Request) return false
+
+            if (text != other.text) return false
+            if (fileName != other.fileName) return false
+            if (fileBytes != null) {
+                if (other.fileBytes == null) return false
+                if (!fileBytes.contentEquals(other.fileBytes)) return false
+            } else if (other.fileBytes != null) return false
+            if (mode != other.mode) return false
+            if (healthOnly != other.healthOnly) return false
+
+            return true
+        }
+
+        override fun hashCode(): Int {
+            var result = text.hashCode()
+            result = 31 * result + (fileName?.hashCode() ?: 0)
+            result = 31 * result + (fileBytes?.contentHashCode() ?: 0)
+            result = 31 * result + mode.hashCode()
+            result = 31 * result + healthOnly.hashCode()
+            return result
+        }
+    }
     private var lastRequest: Request? = null
 
     private fun initialState() = StudyState(
@@ -169,9 +200,13 @@ class StudyFlow(
         val submitted = state.value
         if (submitted.busy) return
         if (!healthOnly) {
-            val error = validateMaterial(request.text)
+            val hasFile = request.fileName != null && request.fileBytes != null
+            val error = if (hasFile) null else validateMaterial(request.text)
             if (error != null || !submitted.modesLoaded || request.mode !in submitted.modes) {
-                mutableState.value = submitted.copy(error = error ?: "Режим пока недоступен.", canRetry = false)
+                mutableState.value = submitted.copy(
+                    error = error ?: "Режим пока недоступен.",
+                    canRetry = false
+                )
                 return
             }
         }
@@ -180,7 +215,14 @@ class StudyFlow(
         mutableState.value = submitted.copy(busy = true, error = null, notice = null, canRetry = false)
         job = scope.launch {
             try {
-                val response = if (healthOnly) health() else process(request.text, request.mode)
+                val response = when {
+                    healthOnly -> health()
+                    request.fileName != null && request.fileBytes != null -> {
+                        val upload = uploadTxt ?: error("uploadTxt не настроен")
+                        upload(request.fileName, request.fileBytes, request.mode)
+                    }
+                    else -> process(request.text, request.mode)
+                }
                 if (generation == requestGeneration) mutableState.value = state.value.copy(
                     screen = if (healthOnly) submitted.screen else Screen.RESULT,
                     result = if (healthOnly) submitted.result else response,

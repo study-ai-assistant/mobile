@@ -1,5 +1,9 @@
 package ru.studyassistant.mobile
-
+import java.io.IOException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import androidx.compose.runtime.rememberCoroutineScope
 import android.Manifest
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -30,11 +34,9 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.withContext
 import ru.studyassistant.mobile.api.StudyApi
 import ru.studyassistant.mobile.ui.theme.AIStudyAssistantTheme
 
@@ -76,14 +78,30 @@ fun StudyApp(flow: StudyFlow) {
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
         flow.permissionMessage(it)
     }
+    val scope = rememberCoroutineScope()
     val filePicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
-        uri?.let { selectedUri ->
-            val name = getFileName(context, selectedUri)
-            val bytes = context.contentResolver.openInputStream(selectedUri)?.use { it.readBytes() }
-            if (bytes != null) {
-                flow.selectFile(name, bytes)
+        if (uri != null) {
+            scope.launch {
+                try {
+                    val fileData = withContext(Dispatchers.IO) {
+                        val name = getFileName(context, uri) ?: "document.txt"
+                        val stream = context.contentResolver.openInputStream(uri)
+                            ?: throw IOException("Не удалось открыть файл")
+                        stream.use { input ->
+                            val maxBytes = 10 * 1024 * 1024 // 10 МБ
+                            val bytes = input.readBytes()
+                            if (bytes.size > maxBytes) {
+                                throw IOException("Файл слишком большой (максимум 10 МБ)")
+                            }
+                            Pair(name, bytes)
+                        }
+                    }
+                    flow.selectFile(fileData.first, fileData.second)
+                } catch (e: Exception) {
+                    flow.clearFile()
+                }
             }
         }
     }
