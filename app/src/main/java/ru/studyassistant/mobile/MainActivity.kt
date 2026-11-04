@@ -91,16 +91,27 @@ fun StudyApp(flow: StudyFlow) {
                             ?: throw IOException("Не удалось открыть файл")
                         stream.use { input ->
                             val maxBytes = 10 * 1024 * 1024 // 10 МБ
-                            val bytes = input.readBytes()
-                            if (bytes.size > maxBytes) {
-                                throw IOException("Файл слишком большой (максимум 10 МБ)")
+                            val buffer = ByteArray(8192)
+                            val output = java.io.ByteArrayOutputStream()
+                            var totalBytesRead = 0
+                            var bytesRead: Int
+
+                            while (input.read(buffer).also { bytesRead = it } != -1) {
+                                totalBytesRead += bytesRead
+                                if (totalBytesRead > maxBytes) {
+                                    throw IOException("Файл слишком большой (максимум 10 МБ)")
+                                }
+                                output.write(buffer, 0, bytesRead)
                             }
-                            Pair(name, bytes)
+                            Pair(name, output.toByteArray())
                         }
                     }
                     flow.selectFile(fileData.first, fileData.second)
                 } catch (e: Exception) {
                     flow.clearFile()
+                    val errorMessage = e.localizedMessage ?: "Ошибка при чтении файла"
+                    // Показываем ошибку пользователю во всплывающем уведомлении:
+                    android.widget.Toast.makeText(context, errorMessage, android.widget.Toast.LENGTH_LONG).show()
                 }
             }
         }
