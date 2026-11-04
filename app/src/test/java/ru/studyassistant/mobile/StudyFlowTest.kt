@@ -8,7 +8,8 @@ import kotlinx.coroutines.yield
 import org.junit.Assert.*
 import org.junit.Test
 import ru.studyassistant.mobile.api.ApiException
-
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertArrayEquals
 class StudyFlowTest {
     @Test fun invalidMaterialStaysOnInputAndDoesNotSend() = runBlocking {
         var calls = 0
@@ -170,4 +171,59 @@ class StudyFlowTest {
         assertEquals("status = ok", flow.state.value.notice)
         assertFalse(flow.state.value.busy)
     }
+
+@Test
+fun testFileUploadSuccess() = runBlocking {
+    var uploadedName: String? = null
+    var uploadedBytes: ByteArray? = null
+
+    val flow = StudyFlow(
+        scope = this,
+        process = { _, _ -> "Ответ" },
+        health = { "ok" },
+        uploadTxt = { name, bytes, _ ->
+            uploadedName = name
+            uploadedBytes = bytes
+            "Результат файла"
+        }
+    )
+
+    val bytes = "Привет, мир!".toByteArray(Charsets.UTF_8)
+    flow.selectFile("test.txt", bytes)
+    flow.showModes()
+    flow.submit()
+    yield()
+
+    assertEquals("test.txt", uploadedName)
+    assertArrayEquals(bytes, uploadedBytes)
+    assertEquals("Результат файла", flow.state.value.result)
+}
+
+@Test
+fun testFileUploadRetry() = runBlocking {
+    var attempts = 0
+    val flow = StudyFlow(
+        scope = this,
+        process = { _, _ -> "Ответ" },
+        health = { "ok" },
+        uploadTxt = { _, _, _ ->
+            attempts++
+            if (attempts == 1) throw ApiException("Ошибка сети")
+            "Успех со 2-й попытки"
+        }
+    )
+
+    flow.selectFile("test.txt", "abc".toByteArray())
+    flow.showModes()
+    flow.submit()
+    yield()
+
+    assertEquals("Ошибка сети", flow.state.value.error)
+
+    flow.retry()
+    yield()
+
+    assertEquals(2, attempts)
+    assertEquals("Успех со 2-й попытки", flow.state.value.result)
+}
 }

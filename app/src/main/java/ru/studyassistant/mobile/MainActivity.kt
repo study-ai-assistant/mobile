@@ -1,7 +1,12 @@
 package ru.studyassistant.mobile
-
+import java.io.IOException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import androidx.compose.runtime.rememberCoroutineScope
 import android.Manifest
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -17,6 +22,7 @@ import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -28,21 +34,25 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.withContext
 import ru.studyassistant.mobile.api.StudyApi
 import ru.studyassistant.mobile.ui.theme.AIStudyAssistantTheme
 
 class StudyViewModel : ViewModel() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val api = StudyApi()
-    val flow = StudyFlow(scope,
+    val flow = StudyFlow(
+        scope,
         process = { text, mode -> withContext(Dispatchers.IO) { api.process(text, mode.name) } },
         health = { withContext(Dispatchers.IO) { api.health() } },
-        loadModes = { withContext(Dispatchers.IO) { api.modes() } }
+        loadModes = { withContext(Dispatchers.IO) { api.modes() } },
+        uploadTxt = { fileName, bytes, mode ->
+            withContext(Dispatchers.IO) {
+                api.uploadTxt(fileName, bytes, mode.name)
+            }
+        }
     )
     override fun onCleared() { scope.cancel() }
 }
@@ -68,6 +78,44 @@ fun StudyApp(flow: StudyFlow) {
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
         flow.permissionMessage(it)
     }
+    val scope = rememberCoroutineScope()
+    val filePicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            scope.launch {
+                try {
+                    val fileData = withContext(Dispatchers.IO) {
+                        val name = getFileName(context, uri) ?: "document.txt"
+                        val stream = context.contentResolver.openInputStream(uri)
+                            ?: throw IOException("Не удалось открыть файл")
+                        stream.use { input ->
+                            val maxBytes = 10 * 1024 * 1024 // 10 МБ
+                            val buffer = ByteArray(8192)
+                            val output = java.io.ByteArrayOutputStream()
+                            var totalBytesRead = 0
+                            var bytesRead: Int
+
+                            while (input.read(buffer).also { bytesRead = it } != -1) {
+                                totalBytesRead += bytesRead
+                                if (totalBytesRead > maxBytes) {
+                                    throw IOException("Файл слишком большой (максимум 10 МБ)")
+                                }
+                                output.write(buffer, 0, bytesRead)
+                            }
+                            Pair(name, output.toByteArray())
+                        }
+                    }
+                    flow.selectFile(fileData.first, fileData.second)
+                } catch (e: Exception) {
+                    flow.clearFile()
+                    val errorMessage = e.localizedMessage ?: "Ошибка при чтении файла"
+                    // Показываем ошибку пользователю во всплывающем уведомлении:
+                    android.widget.Toast.makeText(context, errorMessage, android.widget.Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
     fun request(health: Boolean, retry: Boolean = false, modes: Boolean = false) {
         if (Build.VERSION.SDK_INT >= 37 && ContextCompat.checkSelfPermission(
                 context, Manifest.permission.ACCESS_LOCAL_NETWORK
@@ -90,22 +138,76 @@ fun StudyApp(flow: StudyFlow) {
             }, style = MaterialTheme.typography.headlineSmall)
             when (state.screen) {
                 Screen.MATERIAL -> {
-                    Text("Вставьте учебный текст. Загрузка файлов появится позже.")
+                    if (state.fileName != null) {
+                        OutlinedCard(
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text("Выбранный файл:", style = MaterialTheme.typography.labelMedium)
+                                    Text(state.fileName!!, style = MaterialTheme.typography.bodyLarge)
+                                }
+                                TextButton(
+                                    onClick = { flow.clearFile() },
+                                    enabled = !state.busy
+                                ) {
+                                    Text("Удалить")
+                                }
+                            }
+                        }
+                    } else {
+                        OutlinedButton(
+                            onClick = { filePicker.launch("text/plain") },
+                            enabled = !state.busy,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Выбрать TXT-файл")
+                        }
+                    }
+
+                    Text("или введите текст вручную:", style = MaterialTheme.typography.bodySmall)
+
                     OutlinedTextField(
-                        value = state.material, onValueChange = flow::editMaterial,
-                        modifier = Modifier.fillMaxWidth(), label = { Text("Учебный текст") },
-                        supportingText = { Text("${state.material.codePointCount(0, state.material.length)} / 10 000 символов") },
-                        minLines = 5, maxLines = 10, enabled = !state.busy
+                        value = state.material,
+                        onValueChange = flow::editMaterial,
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("Учебный текст") },
+                        supportingText = {
+                            val count = state.material.codePointCount(0, state.material.length)
+                            Text("$count / 10 000 символов")
+                        },
+                        minLines = 5,
+                        maxLines = 10,
+                        enabled = !state.busy && state.fileName == null
                     )
-                    Button(onClick = { request(false, modes = true) }, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) {
+
+                    Button(
+                        onClick = { request(health = false, modes = true) },
+                        enabled = !state.busy,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
                         Text("Выбрать режим")
                     }
-                    OutlinedButton(onClick = { request(true) }, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) {
+
+                    OutlinedButton(
+                        onClick = { request(health = true) },
+                        enabled = !state.busy,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
                         Text("Проверить связь с сервером")
                     }
                 }
                 Screen.MODES -> {
-                    Text("Введённый текст · ${state.material.codePointCount(0, state.material.length)} символов")
+                    Text(
+                        if (state.fileName != null) "Файл: ${state.fileName}"
+                        else "Введённый текст · ${state.material.codePointCount(0, state.material.length)} символов"
+                    )
                     state.modesError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                     if (!state.modesLoaded && !state.busy) {
                         OutlinedButton(onClick = { request(false, modes = true) }) { Text("Загрузить режимы снова") }
@@ -158,4 +260,15 @@ fun StudyApp(flow: StudyFlow) {
             }
         }
     }
+}
+private fun getFileName(context: android.content.Context, uri: android.net.Uri): String {
+    var name = "document.txt"
+    val cursor = context.contentResolver.query(uri, null, null, null, null)
+    cursor?.use {
+        if (it.moveToFirst()) {
+            val index = it.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+            if (index != -1) name = it.getString(index)
+        }
+    }
+    return name
 }
