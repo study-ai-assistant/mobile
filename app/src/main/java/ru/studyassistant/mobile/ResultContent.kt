@@ -14,20 +14,21 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.unit.dp
+import ru.studyassistant.mobile.ui.theme.StudyButton
+import ru.studyassistant.mobile.ui.theme.StudySpacing
 
 @Composable
 fun ResultContent(result: String, modeTitle: String, onModes: () -> Unit,
                   onNewMaterial: () -> Unit, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     var copied by remember(result) { mutableStateOf(false) }
-    Column(modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(StudySpacing.compact)) {
         Text(modeTitle, style = MaterialTheme.typography.titleMedium)
         Column(Modifier.weight(1f).fillMaxWidth().testTag("result-scroll")
             .verticalScroll(rememberScrollState())) {
             Text(result, modifier = Modifier.testTag("result-text"))
         }
-        Button(onClick = {
+        StudyButton(onClick = {
             val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
             clipboard.setPrimaryClip(ClipData.newPlainText("Результат", result))
             copied = true

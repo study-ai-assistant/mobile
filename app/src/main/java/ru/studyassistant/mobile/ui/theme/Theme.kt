@@ -1,58 +1,56 @@
 package ru.studyassistant.mobile.ui.theme
 
 import android.app.Activity
-import android.os.Build
-import androidx.compose.foundation.isSystemInDarkTheme
+import android.content.Context
+import android.content.ContextWrapper
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
 
-private val DarkColorScheme = darkColorScheme(
-    primary = Purple80,
-    secondary = PurpleGrey80,
-    tertiary = Pink80
+private val UiKitColors = lightColorScheme(
+    primary = Primary, onPrimary = TextOnPrimary,
+    primaryContainer = PrimarySurface, onPrimaryContainer = TextPrimary,
+    secondary = TextSecondary, onSecondary = TextOnPrimary,
+    secondaryContainer = PrimarySurface, onSecondaryContainer = TextPrimary,
+    tertiary = TextSecondary, onTertiary = TextOnPrimary,
+    tertiaryContainer = Success, onTertiaryContainer = TextPrimary,
+    background = Background, onBackground = TextPrimary,
+    surface = Background, onSurface = TextPrimary,
+    surfaceVariant = PrimarySurface, onSurfaceVariant = TextSecondary,
+    surfaceContainer = PrimarySurface, surfaceContainerLow = Background,
+    surfaceContainerHigh = PrimarySurface,
+    error = ErrorText, onError = TextOnPrimary,
+    errorContainer = ErrorSurface, onErrorContainer = TextPrimary,
+    outline = TextSecondary, outlineVariant = PrimarySurface,
+    surfaceTint = Primary
 )
 
-private val LightColorScheme = lightColorScheme(
-    primary = Purple40,
-    secondary = PurpleGrey40,
-    tertiary = Pink40
-
-    /* Other default colors to override
-    background = Color(0xFFFFFBFE),
-    surface = Color(0xFFFFFBFE),
-    onPrimary = Color.White,
-    onSecondary = Color.White,
-    onTertiary = Color.White,
-    onBackground = Color(0xFF1C1B1F),
-    onSurface = Color(0xFF1C1B1F),
-    */
-)
-
+// UI-kit содержит только светлую палитру: цвета обоев и системная тёмная тема
+// не должны подменять утверждённые цвета. Тёмная палитра требует отдельного макета.
 @Composable
-fun AIStudyAssistantTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
-    // Dynamic color is available on Android 12+
-    dynamicColor: Boolean = true,
-    content: @Composable () -> Unit
-) {
-    val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+fun AIStudyAssistantTheme(content: @Composable () -> Unit) {
+    val view = LocalView.current
+    DisposableEffect(view) {
+        val window = view.context.activity()?.window
+        val controller = window?.let { WindowCompat.getInsetsController(it, view) }
+        val status = controller?.isAppearanceLightStatusBars
+        val navigation = controller?.isAppearanceLightNavigationBars
+        controller?.isAppearanceLightStatusBars = true
+        controller?.isAppearanceLightNavigationBars = true
+        onDispose {
+            if (status != null) controller?.isAppearanceLightStatusBars = status
+            if (navigation != null) controller?.isAppearanceLightNavigationBars = navigation
         }
-
-        darkTheme -> DarkColorScheme
-        else -> LightColorScheme
     }
+    MaterialTheme(colorScheme = UiKitColors, typography = Typography,
+        shapes = StudyShapes, content = content)
+}
 
-    MaterialTheme(
-        colorScheme = colorScheme,
-        typography = Typography,
-        content = content
-    )
+private tailrec fun Context.activity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.activity()
+    else -> null
 }

@@ -23,7 +23,6 @@ import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -34,7 +33,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import ru.studyassistant.mobile.api.StudyApi
-import ru.studyassistant.mobile.ui.theme.AIStudyAssistantTheme
+import ru.studyassistant.mobile.ui.theme.*
 
 class StudyViewModel : ViewModel() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -79,9 +78,9 @@ fun StudyApp(flow: StudyFlow) {
     BackHandler(state.screen != Screen.MATERIAL || state.busy) { flow.back() }
     Scaffold(modifier = Modifier.fillMaxSize()) { insets ->
         Column(
-            Modifier.padding(insets).imePadding().padding(16.dp)
+            Modifier.padding(insets).imePadding().padding(StudySpacing.screen)
                 .fillMaxSize().then(if (state.screen == Screen.RESULT) Modifier else Modifier.verticalScroll(rememberScrollState())),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(StudySpacing.screen)
         ) {
             Text(when (state.screen) {
                 Screen.MATERIAL -> "Загрузка материала"
@@ -90,14 +89,16 @@ fun StudyApp(flow: StudyFlow) {
             }, style = MaterialTheme.typography.headlineSmall)
             when (state.screen) {
                 Screen.MATERIAL -> {
-                    Text("Вставьте учебный текст. Загрузка файлов появится позже.")
+                    Text("Вставьте учебный текст. Загрузка файлов появится позже.",
+                        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     OutlinedTextField(
                         value = state.material, onValueChange = flow::editMaterial,
                         modifier = Modifier.fillMaxWidth(), label = { Text("Учебный текст") },
                         supportingText = { Text("${state.material.codePointCount(0, state.material.length)} / 10 000 символов") },
-                        minLines = 5, maxLines = 10, enabled = !state.busy
+                        minLines = 5, maxLines = 10, enabled = !state.busy,
+                        colors = studyTextFieldColors(), shape = MaterialTheme.shapes.large
                     )
-                    Button(onClick = { request(false, modes = true) }, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) {
+                    StudyButton(onClick = { request(false, modes = true) }, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) {
                         Text("Выбрать режим")
                     }
                     OutlinedButton(onClick = { request(true) }, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) {
@@ -106,7 +107,7 @@ fun StudyApp(flow: StudyFlow) {
                 }
                 Screen.MODES -> {
                     Text("Введённый текст · ${state.material.codePointCount(0, state.material.length)} символов")
-                    state.modesError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                    state.modesError?.let { ErrorMessage(it) }
                     if (!state.modesLoaded && !state.busy) {
                         OutlinedButton(onClick = { request(false, modes = true) }) { Text("Загрузить режимы снова") }
                     }
@@ -117,8 +118,8 @@ fun StudyApp(flow: StudyFlow) {
                                     Modifier.fillMaxWidth().selectable(
                                         selected = state.mode == mode, enabled = true,
                                         role = Role.RadioButton, onClick = { flow.selectMode(mode) }
-                                    ).padding(vertical = 10.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ).padding(vertical = StudySpacing.row),
+                                    horizontalArrangement = Arrangement.spacedBy(StudySpacing.compact)
                                 ) {
                                     RadioButton(selected = state.mode == mode, onClick = null, enabled = true)
                                     Column {
@@ -130,7 +131,7 @@ fun StudyApp(flow: StudyFlow) {
                         }
                     }
                     if (state.modesLoaded && (state.error == null || !state.canRetry)) {
-                        Button(onClick = { request(false) }, enabled = !state.busy,
+                        StudyButton(onClick = { request(false) }, enabled = !state.busy,
                             modifier = Modifier.fillMaxWidth()) { Text("Создать") }
                     }
                 }
@@ -146,10 +147,10 @@ fun StudyApp(flow: StudyFlow) {
                 OutlinedButton(onClick = flow::cancel, modifier = Modifier.fillMaxWidth()) { Text("Отмена") }
             }
             state.error?.let { error ->
-                Text(error, color = MaterialTheme.colorScheme.error,
+                ErrorMessage(error,
                     modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
                 if (state.canRetry && !state.busy) {
-                    Button(onClick = { request(false, retry = true) }, modifier = Modifier.fillMaxWidth()) { Text("Повторить") }
+                    StudyButton(onClick = { request(false, retry = true) }, modifier = Modifier.fillMaxWidth()) { Text("Повторить") }
                 }
             }
             state.notice?.let { Text(it, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }) }
