@@ -23,20 +23,25 @@ fun ResultContent(result: String, modeTitle: String, onModes: () -> Unit,
     val context = LocalContext.current
     var copied by remember(result) { mutableStateOf(false) }
     Column(modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(StudySpacing.compact)) {
-        Text(modeTitle, style = MaterialTheme.typography.titleMedium)
+        Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceVariant) {
+            Text(modeTitle, style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(StudySpacing.compact))
+        }
         Column(Modifier.weight(1f).fillMaxWidth().testTag("result-scroll")
             .verticalScroll(rememberScrollState())) {
             Text(result, modifier = Modifier.testTag("result-text"))
         }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(StudySpacing.compact)) {
         StudyButton(onClick = {
             val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
             clipboard.setPrimaryClip(ClipData.newPlainText("Результат", result))
             copied = true
-        }, modifier = Modifier.fillMaxWidth()) {
+        }, modifier = Modifier.weight(1f)) {
             Text(if (copied) "Скопировано" else "Копировать",
                 modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
         }
-        OutlinedButton(onClick = onModes, modifier = Modifier.fillMaxWidth()) { Text("Режимы") }
+        OutlinedButton(onClick = onModes, modifier = Modifier.weight(1f)) { Text("Режимы") }
+        }
         TextButton(onClick = onNewMaterial, modifier = Modifier.fillMaxWidth()) { Text("Новый материал") }
     }
 }
