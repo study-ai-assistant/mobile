@@ -18,6 +18,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
@@ -141,10 +142,14 @@ fun StudyApp(flow: StudyFlow) {
                 }
             }
             if (state.busy) {
-                CircularProgressIndicator()
+                Column(Modifier.fillMaxWidth().padding(vertical = StudySpacing.screen),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(StudySpacing.screen)) {
+                CircularProgressIndicator(Modifier.size(StudySpacing.progress))
                 Text(if (state.loadingModes) "Загружаем режимы…" else if (state.screen == Screen.MATERIAL) "Проверяем связь…" else "Обрабатываем · ${state.mode.title}")
                 if (longWait) Text("Обработка занимает больше времени. Можно подождать или отменить ожидание.")
                 OutlinedButton(onClick = flow::cancel, modifier = Modifier.fillMaxWidth()) { Text("Отмена") }
+                }
             }
             state.error?.let { error ->
                 ErrorMessage(error,

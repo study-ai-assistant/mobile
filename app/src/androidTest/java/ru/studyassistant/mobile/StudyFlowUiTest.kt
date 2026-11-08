@@ -61,7 +61,11 @@ class StudyFlowUiTest {
             val scope = rememberCoroutineScope()
             flow = androidx.compose.runtime.remember {
                 StudyFlow(scope, { _, _ ->
-                    if (++attempt == 1) pending.await() else throw ApiException("Ошибка сервера")
+                    when (++attempt) {
+                        1 -> pending.await()
+                        2 -> throw ApiException("Ошибка сервера")
+                        else -> "Результат после повтора"
+                    }
                 }, { "ok" })
             }
             AIStudyAssistantTheme { StudyApp(flow) }
@@ -72,11 +76,16 @@ class StudyFlowUiTest {
             flow.submit()
         }
         compose.onNodeWithText("Создать").assertIsNotEnabled()
+        capture("waiting")
         compose.onNodeWithText("Отмена").performScrollTo().performClick()
         compose.onNodeWithText("Создать").assertExists()
         compose.runOnIdle { flow.submit() }
         compose.onNodeWithText("Ошибка сервера").assertExists()
         compose.onNodeWithText("Повторить").assertExists()
+        capture("error")
+        compose.runOnIdle { flow.retry() }
+        compose.onNodeWithText("Результат после повтора").assertExists()
+        compose.onNodeWithText("Режимы").performClick()
         compose.onNodeWithText("Назад").performScrollTo().performClick()
         compose.onNodeWithText("Учебный текст").assertTextContains("Сохранённый материал")
     }

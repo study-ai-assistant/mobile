@@ -14,6 +14,7 @@ object StudySpacing {
     val gap = 16.dp
     val compact = 8.dp
     val row = 10.dp
+    val progress = 80.dp
 }
 val StudyShapes = Shapes(
     small = RoundedCornerShape(8.dp), medium = RoundedCornerShape(16.dp),
@@ -44,7 +45,7 @@ fun studyTextFieldColors() = OutlinedTextFieldDefaults.colors(
 fun ErrorMessage(text: String, modifier: Modifier = Modifier) {
     Surface(modifier = modifier, shape = MaterialTheme.shapes.large,
         color = MaterialTheme.colorScheme.errorContainer) {
-        Text(text, color = MaterialTheme.colorScheme.error,
+        Text(text, color = MaterialTheme.colorScheme.onErrorContainer,
             style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier.padding(StudySpacing.screen))
     }
