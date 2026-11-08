@@ -98,6 +98,16 @@ class StudyFlow(
             material = text, fileName = null, fileBytes = null, result = "", error = null, notice = null, canRetry = false
         )
     }
+    fun serverChanged() {
+        if (state.value.busy) return
+        generation++
+        lastRequest = null
+        val previous = state.value
+        mutableState.value = initialState().copy(material = previous.material,
+            fileName = previous.fileName, fileBytes = previous.fileBytes,
+            notice = "Адрес сохранён. Проверьте связь с сервером.")
+    }
+
     fun selectFile(name: String, bytes: ByteArray) {
         if (state.value.busy) return
         mutableState.value = state.value.copy(
