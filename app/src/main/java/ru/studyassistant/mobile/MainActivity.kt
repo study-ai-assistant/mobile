@@ -8,6 +8,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import ru.studyassistant.mobile.ui.theme.StudySpacing
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
@@ -28,6 +29,9 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
 import android.app.Application
+import android.content.ContentResolver
+import android.net.Uri
+import android.provider.OpenableColumns
 import androidx.lifecycle.ViewModelProvider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
@@ -79,6 +83,18 @@ fun StudyApp(flow: StudyFlow, serverAddress: String? = null, onSaveServer: (Stri
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
         flow.permissionMessage(it)
     }
+    val filePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            val contentResolver = context.contentResolver
+            val fileName = getFileName(contentResolver, uri) ?: "document"
+            val bytes = contentResolver.openInputStream(uri)?.use { it.readBytes() }
+            if (bytes != null) {
+                flow.selectFile(name = fileName, bytes = bytes)
+            }
+        }
+    }
     fun request(health: Boolean, retry: Boolean = false, modes: Boolean = false) {
         if (Build.VERSION.SDK_INT >= 37 && ContextCompat.checkSelfPermission(
                 context, Manifest.permission.ACCESS_LOCAL_NETWORK
@@ -104,7 +120,33 @@ fun StudyApp(flow: StudyFlow, serverAddress: String? = null, onSaveServer: (Stri
                     serverAddress?.let {
                         ServerSettingsButton(it, !state.busy, onSaveServer)
                     }
-                    Text("Вставьте учебный текст. Загрузка файлов появится позже.")
+                    Text("Вставьте учебный текст или прикрепите файл:")
+                    Button(
+                        onClick = {
+                            filePickerLauncher.launch(arrayOf("text/plain", "application/pdf"))
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Выбрать файл (TXT, PDF)")
+                    }
+
+                    state.fileName?.let { fileName ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = fileName,
+                                modifier = Modifier.weight(1f)
+                            )
+                            TextButton(onClick = flow::clearFile) {
+                                Text("Убрать")
+                            }
+                        }
+                    }
                     OutlinedTextField(
                         value = state.material, onValueChange = flow::editMaterial,
                         modifier = Modifier.fillMaxWidth(), label = { Text("Учебный текст") },
@@ -176,4 +218,14 @@ fun StudyApp(flow: StudyFlow, serverAddress: String? = null, onSaveServer: (Stri
             }
         }
     }
+}
+private fun getFileName(resolver: ContentResolver, uri: Uri): String? {
+    var name: String? = null
+    resolver.query(uri, null, null, null, null)?.use { cursor ->
+        val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+        if (nameIndex >= 0 && cursor.moveToFirst()) {
+            name = cursor.getString(nameIndex)
+        }
+    }
+    return name ?: uri.lastPathSegment
 }

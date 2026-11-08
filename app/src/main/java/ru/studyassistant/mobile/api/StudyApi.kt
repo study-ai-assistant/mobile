@@ -99,9 +99,14 @@ class StudyApi(
                 output.write((mode + lineEnd).toByteArray(Charsets.UTF_8))
 
                 // 2. Поле file
+                val contentType = when {
+                    fileName.endsWith(".pdf", ignoreCase = true) -> "application/pdf"
+                    else -> "text/plain; charset=utf-8"
+                }
+
                 output.write((twoHyphens + boundary + lineEnd).toByteArray(Charsets.UTF_8))
                 output.write(("Content-Disposition: form-data; name=\"file\"; filename=\"$fileName\"" + lineEnd).toByteArray(Charsets.UTF_8))
-                output.write(("Content-Type: text/plain; charset=utf-8" + lineEnd + lineEnd).toByteArray(Charsets.UTF_8))
+                output.write(("Content-Type: $contentType" + lineEnd + lineEnd).toByteArray(Charsets.UTF_8))
                 output.write(fileBytes)
                 output.write(lineEnd.toByteArray(Charsets.UTF_8))
 
