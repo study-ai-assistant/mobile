@@ -1,7 +1,12 @@
 package ru.studyassistant.mobile
-
+import java.io.IOException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import androidx.compose.runtime.rememberCoroutineScope
 import android.Manifest
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -23,17 +28,17 @@ import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import ru.studyassistant.mobile.api.StudyApi
-import ru.studyassistant.mobile.ui.theme.*
+import ru.studyassistant.mobile.ui.theme.AIStudyAssistantTheme
 
 class StudyViewModel : ViewModel() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -78,9 +83,9 @@ fun StudyApp(flow: StudyFlow) {
     BackHandler(state.screen != Screen.MATERIAL || state.busy) { flow.back() }
     Scaffold(modifier = Modifier.fillMaxSize()) { insets ->
         Column(
-            Modifier.padding(insets).imePadding().padding(StudySpacing.screen)
+            Modifier.padding(insets).imePadding().padding(16.dp)
                 .fillMaxSize().then(if (state.screen == Screen.RESULT) Modifier else Modifier.verticalScroll(rememberScrollState())),
-            verticalArrangement = Arrangement.spacedBy(StudySpacing.screen)
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Text(when (state.screen) {
                 Screen.MATERIAL -> "Загрузка материала"
@@ -89,16 +94,14 @@ fun StudyApp(flow: StudyFlow) {
             }, style = MaterialTheme.typography.headlineSmall)
             when (state.screen) {
                 Screen.MATERIAL -> {
-                    Text("Вставьте учебный текст. Загрузка файлов появится позже.",
-                        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Вставьте учебный текст. Загрузка файлов появится позже.")
                     OutlinedTextField(
                         value = state.material, onValueChange = flow::editMaterial,
                         modifier = Modifier.fillMaxWidth(), label = { Text("Учебный текст") },
                         supportingText = { Text("${state.material.codePointCount(0, state.material.length)} / 10 000 символов") },
-                        minLines = 5, maxLines = 10, enabled = !state.busy,
-                        colors = studyTextFieldColors(), shape = MaterialTheme.shapes.large
+                        minLines = 5, maxLines = 10, enabled = !state.busy
                     )
-                    StudyButton(onClick = { request(false, modes = true) }, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) {
+                    Button(onClick = { request(false, modes = true) }, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) {
                         Text("Выбрать режим")
                     }
                     OutlinedButton(onClick = { request(true) }, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) {
@@ -107,7 +110,7 @@ fun StudyApp(flow: StudyFlow) {
                 }
                 Screen.MODES -> {
                     Text("Введённый текст · ${state.material.codePointCount(0, state.material.length)} символов")
-                    state.modesError?.let { ErrorMessage(it) }
+                    state.modesError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                     if (!state.modesLoaded && !state.busy) {
                         OutlinedButton(onClick = { request(false, modes = true) }) { Text("Загрузить режимы снова") }
                     }
@@ -118,8 +121,8 @@ fun StudyApp(flow: StudyFlow) {
                                     Modifier.fillMaxWidth().selectable(
                                         selected = state.mode == mode, enabled = true,
                                         role = Role.RadioButton, onClick = { flow.selectMode(mode) }
-                                    ).padding(vertical = StudySpacing.row),
-                                    horizontalArrangement = Arrangement.spacedBy(StudySpacing.compact)
+                                    ).padding(vertical = 10.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
                                     RadioButton(selected = state.mode == mode, onClick = null, enabled = true)
                                     Column {
@@ -131,7 +134,7 @@ fun StudyApp(flow: StudyFlow) {
                         }
                     }
                     if (state.modesLoaded && (state.error == null || !state.canRetry)) {
-                        StudyButton(onClick = { request(false) }, enabled = !state.busy,
+                        Button(onClick = { request(false) }, enabled = !state.busy,
                             modifier = Modifier.fillMaxWidth()) { Text("Создать") }
                     }
                 }
@@ -147,10 +150,10 @@ fun StudyApp(flow: StudyFlow) {
                 OutlinedButton(onClick = flow::cancel, modifier = Modifier.fillMaxWidth()) { Text("Отмена") }
             }
             state.error?.let { error ->
-                ErrorMessage(error,
+                Text(error, color = MaterialTheme.colorScheme.error,
                     modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
                 if (state.canRetry && !state.busy) {
-                    StudyButton(onClick = { request(false, retry = true) }, modifier = Modifier.fillMaxWidth()) { Text("Повторить") }
+                    Button(onClick = { request(false, retry = true) }, modifier = Modifier.fillMaxWidth()) { Text("Повторить") }
                 }
             }
             state.notice?.let { Text(it, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }) }
