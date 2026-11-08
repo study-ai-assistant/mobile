@@ -1,12 +1,7 @@
 package ru.studyassistant.mobile
-import java.io.IOException
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import androidx.compose.runtime.rememberCoroutineScope
 import android.Manifest
 import android.content.pm.PackageManager
-import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -31,7 +26,8 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.AndroidViewModel
+import android.app.Application
 import androidx.lifecycle.ViewModelProvider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
@@ -41,9 +37,17 @@ import kotlinx.coroutines.withContext
 import ru.studyassistant.mobile.api.StudyApi
 import ru.studyassistant.mobile.ui.theme.AIStudyAssistantTheme
 
-class StudyViewModel : ViewModel() {
+class StudyViewModel(application: Application) : AndroidViewModel(application) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
-    private val api = StudyApi()
+    private val settings = ServerSettings(application)
+    var serverAddress by mutableStateOf(settings.address)
+        private set
+    private val api get() = StudyApi(serverAddress)
+    fun saveServerAddress(value: String) {
+        check(!flow.state.value.busy) { "Дождитесь окончания запроса." }
+        serverAddress = settings.save(value)
+        flow.serverChanged()
+    }
     val flow = StudyFlow(scope,
         process = { text, mode -> withContext(Dispatchers.IO) { api.process(text, mode.name) } },
         health = { withContext(Dispatchers.IO) { api.health() } },
@@ -56,13 +60,15 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        val flow = ViewModelProvider(this)[StudyViewModel::class.java].flow
-        setContent { AIStudyAssistantTheme { StudyApp(flow) } }
+        val model = ViewModelProvider(this)[StudyViewModel::class.java]
+        setContent { AIStudyAssistantTheme {
+            StudyApp(model.flow, model.serverAddress, model::saveServerAddress)
+        } }
     }
 }
 
 @Composable
-fun StudyApp(flow: StudyFlow) {
+fun StudyApp(flow: StudyFlow, serverAddress: String? = null, onSaveServer: (String) -> Unit = {}) {
     val state by flow.state.collectAsState()
     val context = LocalContext.current
     var longWait by remember { mutableStateOf(false) }
@@ -95,6 +101,9 @@ fun StudyApp(flow: StudyFlow) {
             }, style = MaterialTheme.typography.headlineSmall)
             when (state.screen) {
                 Screen.MATERIAL -> {
+                    serverAddress?.let {
+                        ServerSettingsButton(it, !state.busy, onSaveServer)
+                    }
                     Text("Вставьте учебный текст. Загрузка файлов появится позже.")
                     OutlinedTextField(
                         value = state.material, onValueChange = flow::editMaterial,
