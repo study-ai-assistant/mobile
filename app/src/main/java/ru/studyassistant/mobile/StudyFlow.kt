@@ -31,6 +31,7 @@ data class StudyState(
     val fileBytes: ByteArray? = null,
     val mode: ProcessingMode = ProcessingMode.SHORT_SUMMARY,
     val busy: Boolean = false,
+    val loadingFile: Boolean = false,
     val loadingModes: Boolean = false,
     val modes: List<ProcessingMode> = listOf(ProcessingMode.SHORT_SUMMARY),
     val modesLoaded: Boolean = true,
@@ -114,10 +115,32 @@ class StudyFlow(
             fileName = name,
             fileBytes = bytes,
             material = "", // очищаем ручной ввод, если выбран файл
+            result = "",
             error = null,
             notice = null,
             canRetry = false
         )
+    }
+
+    fun readFile(read: suspend () -> MaterialFile) {
+        if (state.value.busy) return
+        val requestGeneration = ++generation
+        mutableState.value = state.value.copy(busy = true, loadingFile = true, error = null, notice = null, canRetry = false)
+        job = scope.launch {
+            try {
+                val file = read()
+                if (generation == requestGeneration) mutableState.value = state.value.copy(
+                    fileName = file.name, fileBytes = file.bytes, material = "", result = "")
+            } catch (e: CancellationException) { throw e
+            } catch (e: java.io.IOException) {
+                if (generation == requestGeneration) mutableState.value = state.value.copy(
+                    error = if (e is ApiException) e.message else "Не удалось прочитать файл. Выберите его снова.")
+            } catch (_: SecurityException) {
+                if (generation == requestGeneration) mutableState.value = state.value.copy(error = "Нет доступа к файлу. Выберите его снова.")
+            } finally {
+                if (generation == requestGeneration) mutableState.value = state.value.copy(busy = false, loadingFile = false)
+            }
+        }
     }
 
     fun clearFile() {
@@ -125,7 +148,7 @@ class StudyFlow(
         mutableState.value = state.value.copy(
             fileName = null,
             fileBytes = null,
-            error = null
+            error = null, result = "", notice = null, canRetry = false
         )
     }
     fun showModes() {
@@ -258,8 +281,8 @@ class StudyFlow(
         generation++
         job?.cancel()
         mutableState.value = state.value.copy(
-            busy = false, loadingModes = false, error = null, canRetry = false,
-            notice = "Ожидание отменено. Сервер может продолжать обработку."
+            busy = false, loadingModes = false, loadingFile = false, error = null, canRetry = false,
+            notice = if (state.value.loadingFile) "Выбор файла отменён." else "Ожидание отменено. Сервер может продолжать обработку."
         )
     }
 
