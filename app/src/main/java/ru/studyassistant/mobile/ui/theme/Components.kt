@@ -15,6 +15,9 @@ object StudySpacing {
     val compact = 8.dp
     val row = 10.dp
     val progress = 80.dp
+    val inputHeight = 220.dp
+    val actionHeight = 52.dp
+    val selectionBorder = 2.dp
 }
 val StudyShapes = Shapes(
     small = RoundedCornerShape(8.dp), medium = RoundedCornerShape(16.dp),
