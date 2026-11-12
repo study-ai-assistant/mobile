@@ -36,6 +36,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import ru.studyassistant.mobile.api.StudyApi
 import ru.studyassistant.mobile.ui.theme.AIStudyAssistantTheme
+import ru.studyassistant.mobile.ui.theme.StudySpacing
+import ru.studyassistant.mobile.ui.theme.ErrorMessage
 
 class StudyViewModel(application: Application) : AndroidViewModel(application) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -164,7 +166,7 @@ fun StudyApp(flow: StudyFlow, serverAddress: String? = null, onSaveServer: (Stri
                 }
             }
             state.error?.let { error ->
-                Text(error, color = MaterialTheme.colorScheme.error,
+                ErrorMessage(error,
                     modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
                 if (state.canRetry && !state.busy) {
                     Button(onClick = { request(false, retry = true) }, modifier = Modifier.fillMaxWidth()) { Text("Повторить") }
