@@ -112,7 +112,7 @@ class StudyApi(
 
             val status = connection.responseCode
             if (status != 200) {
-                throw ApiException(ApiMessages.http(status, processing = true))
+                throw ApiException(MaterialErrorMessages.message(status, readProblem(connection)))
             }
 
             val responseText = connection.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
@@ -131,6 +131,21 @@ class StudyApi(
     } catch (_: JSONException) {
         throw ApiException(ApiMessages.INVALID_RESPONSE)
     }
+
+    private fun readProblem(connection: HttpURLConnection): String? = try {
+        // Ограничиваем тело ошибки; HTML прокси и повреждённый JSON обработает fallback.
+        connection.errorStream?.use { stream ->
+            val output = java.io.ByteArrayOutputStream()
+            val buffer = ByteArray(4096)
+            while (output.size() <= 64 * 1024) {
+                val count = stream.read(buffer, 0, minOf(buffer.size, 64 * 1024 + 1 - output.size()))
+                if (count == -1) break
+                output.write(buffer, 0, count)
+            }
+            if (output.size() > 64 * 1024) null else output.toString("UTF-8")
+        }
+    } catch (_: IOException) { null }
+
     private fun request(method: String, path: String, body: JSONObject? = null): String {
         val connection = openConnection(URL(baseUrl.trimEnd('/') + path))
         try {
