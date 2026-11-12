@@ -37,8 +37,7 @@ class StudyFlowUiTest {
             AIStudyAssistantTheme { StudyApp(flow) }
         }
         capture("material")
-        compose.onNodeWithText("Выбрать режим").performScrollTo().performClick()
-        compose.onNodeWithText("Введите учебный текст.").assertExists()
+        compose.onNodeWithText("Выбрать режим").performScrollTo().assertIsNotEnabled()
         compose.onNodeWithText("Учебный текст").performTextInput("Материал для проверки")
         compose.onNodeWithText("Выбрать режим").performScrollTo().performClick()
         compose.onNodeWithText("Подробный конспект").assertExists()
