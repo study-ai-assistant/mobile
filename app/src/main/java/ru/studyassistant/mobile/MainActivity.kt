@@ -25,6 +25,9 @@ import androidx.compose.ui.semantics.semantics
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
 import android.app.Application
+import android.content.ContentResolver
+import android.net.Uri
+import android.provider.OpenableColumns
 import androidx.lifecycle.ViewModelProvider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
@@ -32,7 +35,6 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import ru.studyassistant.mobile.api.StudyApi
-import android.net.Uri
 import ru.studyassistant.mobile.ui.theme.AIStudyAssistantTheme
 import ru.studyassistant.mobile.ui.theme.StudySpacing
 import ru.studyassistant.mobile.ui.theme.ErrorMessage
