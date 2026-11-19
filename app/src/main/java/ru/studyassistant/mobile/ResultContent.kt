@@ -169,7 +169,7 @@ private fun resolveDisplayName(context: Context, uri: Uri, fallback: String): St
 private fun shareResultText(context: Context, modeTitle: String, result: String) {
     val sendIntent = Intent(Intent.ACTION_SEND).apply {
         type = "text/plain"
-        putExtra(Intent.EXTRA_SUBJECT, modeTitle)
+        putExtra(Intent.EXTRA_SUBJECT, modeTitle.trim())
         putExtra(Intent.EXTRA_TEXT, buildShareText(modeTitle, result))
     }
     context.startActivity(Intent.createChooser(sendIntent, "Поделиться результатом"))
@@ -296,9 +296,17 @@ fun ResultContent(
             }
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(StudySpacing.compact)) {
+            OutlinedButton(
+                onClick = { shareResultText(context, modeTitle, result) },
+                modifier = Modifier
+                    .weight(1f)
+                    .testTag("share-result-button")
+            ) {
+                Text("Поделиться")
+            }
             OutlinedButton(onClick = onModes, modifier = Modifier.weight(1f)) { Text("Режимы") }
-            TextButton(onClick = onNewMaterial, modifier = Modifier.weight(1f)) { Text("Новый материал") }
         }
+        TextButton(onClick = onNewMaterial, modifier = Modifier.fillMaxWidth()) { Text("Новый материал") }
     }
 
     if (showFormatSheet) {
