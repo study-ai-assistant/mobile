@@ -97,6 +97,7 @@ fun StudyApp(flow: StudyFlow, serverAddress: String? = null, onSaveServer: (Stri
             permission.launch(Manifest.permission.ACCESS_LOCAL_NETWORK)
         } else if (retry) flow.retry() else if (modes) flow.showModes() else if (health) flow.checkHealth() else flow.submit()
     }
+    val generationScreen = state.screen == Screen.MODES && !state.loadingModes && (state.busy || state.error != null)
     BackHandler(state.screen != Screen.MATERIAL || state.busy) { flow.back() }
     Scaffold(modifier = Modifier.fillMaxSize()) { insets ->
         Column(
@@ -104,11 +105,11 @@ fun StudyApp(flow: StudyFlow, serverAddress: String? = null, onSaveServer: (Stri
                 .fillMaxSize().then(if (state.screen == Screen.RESULT || state.longProgress != null || state.longError) Modifier else Modifier.verticalScroll(rememberScrollState())),
             verticalArrangement = Arrangement.spacedBy(StudySpacing.gap)
         ) {
-            if (state.screen != Screen.MATERIAL) Text(when (state.screen) {
+            if (state.screen != Screen.MATERIAL && state.longProgress == null && !state.longError) Text(when (state.screen) {
                 Screen.MATERIAL -> "Загрузка материала"
-                Screen.MODES -> "Выбор режима"
+                Screen.MODES -> if (generationScreen) "Результат" else "Выбор режима"
                 Screen.RESULT -> "Результат"
-            }, style = MaterialTheme.typography.headlineSmall)
+            }, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.fillMaxWidth(), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
             if (state.screen != Screen.RESULT && (state.longProgress != null || state.longError)) {
                 LongProgressContent(LongProcessingState(running = state.busy, progress = state.longProgress ?: LongProgress(), error = state.error, canRetry = state.canRetry), flow::back, flow::retry, Modifier.weight(1f), materialName = state.fileName ?: "Введённый текст")
             } else {
@@ -122,7 +123,8 @@ fun StudyApp(flow: StudyFlow, serverAddress: String? = null, onSaveServer: (Stri
                     serverAddress?.let { ServerSettingsButton(it, !state.busy, onSaveServer) }
                 }
                 Screen.MODES -> {
-                    ModesContent(state, flow::selectMode,
+                    if (generationScreen) GenerationContent(state, longWait, flow::cancel, { request(false, retry = true) }, flow::back)
+                    else ModesContent(state, flow::selectMode,
                         { request(false, modes = true) }, { request(false) })
                 }
                 Screen.RESULT -> {
@@ -130,7 +132,7 @@ fun StudyApp(flow: StudyFlow, serverAddress: String? = null, onSaveServer: (Stri
                         flow::newMaterial, Modifier.weight(1f))
                 }
             }
-            if (state.busy && !state.loadingFile) {
+            if (state.busy && !state.loadingFile && !generationScreen) {
                 Column(Modifier.fillMaxWidth().padding(vertical = StudySpacing.screen),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(StudySpacing.screen)) {
@@ -141,7 +143,7 @@ fun StudyApp(flow: StudyFlow, serverAddress: String? = null, onSaveServer: (Stri
                 }
             }
             if (state.loadingFile) OutlinedButton(onClick = flow::cancel) { Text("Отмена") }
-            state.error?.let { error ->
+            if (!generationScreen) state.error?.let { error ->
                 ErrorMessage(error,
                     modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
                 if (state.canRetry && !state.busy) {
@@ -150,7 +152,7 @@ fun StudyApp(flow: StudyFlow, serverAddress: String? = null, onSaveServer: (Stri
             }
             }
             state.notice?.let { Text(it, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }) }
-            if (state.screen == Screen.MODES && !state.busy && state.longProgress == null && !state.longError) {
+            if (state.screen == Screen.MODES && !generationScreen && !state.busy && state.longProgress == null && !state.longError) {
                 OutlinedButton(onClick = flow::back, modifier = Modifier.fillMaxWidth()) { Text("Назад") }
             }
         }

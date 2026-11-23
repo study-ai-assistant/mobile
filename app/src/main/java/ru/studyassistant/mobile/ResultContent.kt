@@ -63,16 +63,16 @@ import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import ru.studyassistant.mobile.ui.theme.StudyButton
+import ru.studyassistant.mobile.ui.theme.*
 import ru.studyassistant.mobile.ui.theme.StudySpacing
 
-private val SaveBackgroundColor = Color(0xFFF5F4FE)
-private val SaveAccentPurple = Color(0xFF7C3AED)
-private val SaveSecondaryFill = Color(0xFFEDE9FE)
-private val SaveSuccessGreen = Color(0xFF8BE29B)
-private val SaveErrorFill = Color(0xFFF7C8D4)
-private val SaveErrorBorder = Color(0xFFD95C7E)
-private val SaveErrorText = Color(0xFFC82D55)
+private val SaveBackgroundColor = Background
+private val SaveAccentPurple = Primary
+private val SaveSecondaryFill = PrimarySurface
+private val SaveSuccessGreen = Success
+private val SaveErrorFill = ErrorSurface
+private val SaveErrorBorder = ErrorText
+private val SaveErrorText = ErrorText
 
 internal enum class ExportFormat(
     val label: String,
@@ -250,10 +250,10 @@ fun ResultContent(
     }
 
     Column(modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(StudySpacing.compact)) {
-        Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceVariant) {
+        Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceVariant, border = BorderStroke(2.dp, MaterialTheme.colorScheme.primary)) {
             Text(
                 modeTitle,
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.titleSmall,
                 modifier = Modifier.padding(StudySpacing.compact)
             )
         }
@@ -261,10 +261,11 @@ fun ResultContent(
             Modifier
                 .weight(1f)
                 .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.shapes.large)
                 .testTag("result-scroll")
                 .verticalScroll(rememberScrollState())
         ) {
-            Text(result, modifier = Modifier.testTag("result-text"))
+            Text(result, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(StudySpacing.screen).testTag("result-text"))
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(StudySpacing.compact)) {
             StudyButton(
@@ -286,7 +287,7 @@ fun ResultContent(
                 border = BorderStroke(1.5.dp, SaveAccentPurple),
                 colors = ButtonDefaults.outlinedButtonColors(
                     containerColor = SaveSecondaryFill,
-                    contentColor = Color(0xFF1F1F2E)
+                    contentColor = TextPrimary
                 ),
                 modifier = Modifier
                     .weight(1f)
@@ -306,7 +307,7 @@ fun ResultContent(
             }
             OutlinedButton(onClick = onModes, modifier = Modifier.weight(1f)) { Text("Режимы") }
         }
-        TextButton(onClick = onNewMaterial, modifier = Modifier.fillMaxWidth()) { Text("Новый материал") }
+        OutlinedButton(onClick = onNewMaterial, shape = MaterialTheme.shapes.medium, colors = ButtonDefaults.outlinedButtonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant), border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary), modifier = Modifier.fillMaxWidth()) { Text("Новый материал") }
     }
 
     if (showFormatSheet) {
@@ -364,7 +365,7 @@ private fun FormatPickerSheetContent(
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Medium,
                         textAlign = TextAlign.Center,
-                        color = Color(0xFF1F1F2E)
+                        color = TextPrimary
                     )
                 }
             }
@@ -388,7 +389,7 @@ private fun FormatPickerSheetContent(
             border = BorderStroke(1.5.dp, SaveAccentPurple),
             colors = ButtonDefaults.outlinedButtonColors(
                 containerColor = SaveSecondaryFill,
-                contentColor = Color(0xFF1F1F2E)
+                contentColor = TextPrimary
             ),
             modifier = Modifier
                 .fillMaxWidth()
@@ -417,7 +418,7 @@ private fun SaveSuccessScreen(
             text = "Сохранение",
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.SemiBold,
-            color = Color(0xFF1F1F2E)
+            color = TextPrimary
         )
 
         Spacer(Modifier.weight(1f))
@@ -436,7 +437,7 @@ private fun SaveSuccessScreen(
                 }
                 drawPath(
                     path = path,
-                    color = Color(0xFF1F1F2E),
+                    color = TextPrimary,
                     style = Stroke(
                         width = 6f,
                         cap = StrokeCap.Round,
@@ -466,14 +467,14 @@ private fun SaveSuccessScreen(
                     text = "Файл сохранён",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF1F1F2E),
+                    color = TextPrimary,
                     textAlign = TextAlign.Center
                 )
                 Text(
                     text = fileName,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF1F1F2E),
+                    color = TextPrimary,
                     textAlign = TextAlign.Center
                 )
             }
@@ -499,7 +500,7 @@ private fun SaveSuccessScreen(
             border = BorderStroke(1.5.dp, SaveAccentPurple),
             colors = ButtonDefaults.outlinedButtonColors(
                 containerColor = SaveSecondaryFill,
-                contentColor = Color(0xFF1F1F2E)
+                contentColor = TextPrimary
             ),
             modifier = Modifier
                 .fillMaxWidth()
@@ -528,7 +529,7 @@ private fun SaveErrorScreen(
             text = "Сохранение",
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.SemiBold,
-            color = Color(0xFF1F1F2E)
+            color = TextPrimary
         )
 
         Spacer(Modifier.weight(1f))
@@ -608,7 +609,7 @@ private fun SaveErrorScreen(
             border = BorderStroke(1.5.dp, SaveAccentPurple),
             colors = ButtonDefaults.outlinedButtonColors(
                 containerColor = SaveSecondaryFill,
-                contentColor = Color(0xFF1F1F2E)
+                contentColor = TextPrimary
             ),
             modifier = Modifier
                 .fillMaxWidth()

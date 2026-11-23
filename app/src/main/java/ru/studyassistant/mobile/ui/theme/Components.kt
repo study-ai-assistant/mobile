@@ -15,7 +15,7 @@ object StudySpacing {
     val compact = 8.dp
     val row = 10.dp
     val progress = 80.dp
-    val inputHeight = 220.dp
+    val inputHeight = 180.dp
     val actionHeight = 52.dp
     val selectionBorder = 2.dp
 }
@@ -46,7 +46,7 @@ fun studyTextFieldColors() = OutlinedTextFieldDefaults.colors(
 
 @Composable
 fun ErrorMessage(text: String, modifier: Modifier = Modifier) {
-    Surface(modifier = modifier, shape = MaterialTheme.shapes.large,
+    Surface(modifier = modifier, shape = MaterialTheme.shapes.large, border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.onErrorContainer),
         color = MaterialTheme.colorScheme.errorContainer) {
         Text(text, color = MaterialTheme.colorScheme.onErrorContainer,
             style = MaterialTheme.typography.bodyMedium,
