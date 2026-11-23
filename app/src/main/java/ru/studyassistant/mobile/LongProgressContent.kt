@@ -20,7 +20,7 @@ import ru.studyassistant.mobile.ui.theme.StudySpacing
 fun LongProgressContent(state: LongProcessingState, onCancel: () -> Unit, onRetry: () -> Unit,
                         modifier: Modifier = Modifier, materialName: String = "Введённый текст") {
     Column(modifier.background(MaterialTheme.colorScheme.background).verticalScroll(rememberScrollState()).padding(StudySpacing.screen),
-        verticalArrangement = Arrangement.spacedBy(StudySpacing.gap)) {
+        verticalArrangement = Arrangement.spacedBy(StudySpacing.gap), horizontalAlignment = Alignment.CenterHorizontally) {
         Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = MaterialTheme.shapes.large, border = BorderStroke(2.dp, MaterialTheme.colorScheme.primary),
             modifier = Modifier.fillMaxWidth()) {
             Text(materialName, Modifier.padding(StudySpacing.screen), style = MaterialTheme.typography.bodyMedium)
@@ -36,23 +36,23 @@ fun LongProgressContent(state: LongProcessingState, onCancel: () -> Unit, onRetr
                     if (progress.queued || total == null) CircularProgressIndicator(Modifier.size(160.dp))
                     else CircularProgressIndicator(progress = { progress.completedParts.toFloat() / total },
                         modifier = Modifier.size(160.dp), strokeWidth = 12.dp,
-                        trackColor = MaterialTheme.colorScheme.surfaceVariant)
+                        trackColor = ru.studyassistant.mobile.ui.theme.Inactive)
                 }
                 if (!progress.queued && total != null) {
                     Text(if (progress.completedParts == total) "Все части обработаны. Подготавливаем результат…"
-                        else "Часть ${progress.completedParts + 1} из $total")
+                        else "Часть ${progress.completedParts + 1} из $total", style = MaterialTheme.typography.headlineSmall, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                     Text("Готово частей: ${progress.completedParts} из $total")
                 }
                 Text(progress.remainingSeconds?.let {
                     if (it == 0) "Завершаем обработку…" else "Осталось примерно ${(it + 59L) / 60} мин."
                 } ?: "Обработка может занять 3–5 минут. Точное время пока неизвестно.")
-                Button(onClick = onCancel, modifier = Modifier.fillMaxWidth()) { Text("Отменить") }
+                ru.studyassistant.mobile.ui.theme.StudyButton(onClick = onCancel, modifier = Modifier.fillMaxWidth().heightIn(min = StudySpacing.actionHeight)) { Text("Отменить") }
             }
             state.error != null -> {
                 Text("Обработка остановлена", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onBackground)
                 Surface(color = MaterialTheme.colorScheme.errorContainer, shape = MaterialTheme.shapes.large, border = BorderStroke(1.dp, MaterialTheme.colorScheme.onErrorContainer)) {
                     Column(Modifier.padding(StudySpacing.screen),
-                        verticalArrangement = Arrangement.spacedBy(StudySpacing.gap)) {
+                        verticalArrangement = Arrangement.spacedBy(StudySpacing.gap), horizontalAlignment = Alignment.CenterHorizontally) {
                         Text("!", style = MaterialTheme.typography.headlineLarge,
                             color = MaterialTheme.colorScheme.onErrorContainer)
                         Text(state.error.substringBefore(". "), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onErrorContainer)

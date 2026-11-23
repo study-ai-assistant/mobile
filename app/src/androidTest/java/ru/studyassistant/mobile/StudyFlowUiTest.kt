@@ -17,6 +17,16 @@ class StudyFlowUiTest {
     @get:Rule val compose = createComposeRule()
     private lateinit var flow: StudyFlow
 
+    @org.junit.Before fun grantNetworkPermissionForUiNavigation() {
+        if (android.os.Build.VERSION.SDK_INT >= 37) {
+            val instrumentation = InstrumentationRegistry.getInstrumentation()
+            val command = "pm grant ${instrumentation.targetContext.packageName} android.permission.ACCESS_LOCAL_NETWORK"
+            android.os.ParcelFileDescriptor.AutoCloseInputStream(
+                instrumentation.uiAutomation.executeShellCommand(command)
+            ).use { it.readBytes() }
+        }
+    }
+
     private fun capture(name: String) {
         compose.waitForIdle()
         val instrumentation = InstrumentationRegistry.getInstrumentation()
@@ -74,7 +84,7 @@ class StudyFlowUiTest {
             flow.showModes()
             flow.submit()
         }
-        compose.onNodeWithText("Создать").assertIsNotEnabled()
+        compose.onNodeWithText("Создать").assertDoesNotExist()
         capture("waiting")
         compose.onNodeWithText("Отмена").performScrollTo().performClick()
         compose.onNodeWithText("Создать").assertExists()

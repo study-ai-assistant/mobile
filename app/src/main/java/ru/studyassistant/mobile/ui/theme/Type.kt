@@ -22,7 +22,7 @@ val Typography = Typography(
     titleLarge = Defaults.titleLarge.copy(fontFamily = JetBrainsMono, fontWeight = FontWeight.Bold),
     titleMedium = Defaults.titleMedium.copy(fontFamily = JetBrainsMono, fontWeight = FontWeight.Bold),
     titleSmall = Defaults.titleSmall.copy(fontFamily = JetBrainsMono, fontWeight = FontWeight.Bold),
-    bodyLarge = Defaults.bodyLarge.copy(fontFamily = JetBrainsMono, fontWeight = FontWeight.Bold),
+    bodyLarge = Defaults.bodyLarge.copy(fontFamily = JetBrainsMono, fontWeight = FontWeight.Normal),
     bodyMedium = Defaults.bodyMedium.copy(fontFamily = JetBrainsMono, fontWeight = FontWeight.Normal),
     bodySmall = Defaults.bodySmall.copy(fontFamily = JetBrainsMono, fontWeight = FontWeight.Normal),
     labelLarge = Defaults.labelLarge.copy(fontFamily = JetBrainsMono, fontWeight = FontWeight.Bold),
