@@ -44,6 +44,8 @@ class AllModesLiveTest {
         compose.waitUntil(20_000) { !flow.state.value.busy }
         assertEquals(5, flow.state.value.modes.size)
         for (mode in ProcessingMode.entries) {
+            // Respect the backend minute reservation; do not change production quotas.
+            Thread.sleep(21_000)
             compose.onNodeWithText(mode.title).performScrollTo().performClick()
             compose.onNodeWithText("Создать").performScrollTo().performClick()
             compose.waitUntil(100_000) { !flow.state.value.busy }
@@ -57,6 +59,7 @@ class AllModesLiveTest {
                 screenshot.compress(Bitmap.CompressFormat.PNG, 100, it)
             }
             screenshot.recycle()
+            compose.onNodeWithTag("result-more").performClick()
             compose.onNodeWithText("Режимы").performClick()
         }
     }

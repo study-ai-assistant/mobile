@@ -2,6 +2,14 @@ package ru.studyassistant.mobile.api
 
 /** Пользовательские сообщения без внутренних подробностей ответа сервера. */
 internal object ApiMessages {
+    const val RATE_LIMIT = "Лимит сервиса обработки текста исчерпан. Повторите запрос позже."
+
+    fun knownRateLimit(status: Int, body: String?): Boolean {
+        if (status != 502 || body == null) return false
+        val problem = try { org.json.JSONObject(body) } catch (_: org.json.JSONException) { return false }
+        return problem.optInt("status") == status && problem.optString("type") == "about:blank" &&
+            problem.optString("detail") == RATE_LIMIT
+    }
     const val TIMEOUT = "Сервер не ответил вовремя. Попробуйте ещё раз позже."
     const val CONNECTION = "Нет связи. Проверьте интернет и повторите попытку"
     const val INVALID_RESPONSE = "Сервер вернул ответ в неверном формате."

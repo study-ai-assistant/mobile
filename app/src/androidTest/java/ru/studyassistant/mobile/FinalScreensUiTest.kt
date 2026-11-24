@@ -52,7 +52,7 @@ class FinalScreensUiTest {
         compose.setContent { AIStudyAssistantTheme {
             ResultContent("Основная идея\nФотосинтез преобразует энергию света в химическую энергию.\n\nСветовая стадия\nОбразуется кислород.\n\nТемновая стадия\nУглекислый газ используется для синтеза органических веществ.", "Краткий конспект", {}, {})
         } }
-        compose.onNodeWithTag("share-result-button").assertIsDisplayed()
+        compose.onNodeWithTag("mode-star", useUnmergedTree = true).assertIsDisplayed()
         compose.onNodeWithTag("save-file-button").assertIsDisplayed()
         capture("result")
     }

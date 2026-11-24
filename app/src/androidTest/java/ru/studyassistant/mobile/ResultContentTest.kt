@@ -25,13 +25,14 @@ class ResultContentTest {
         compose.onNodeWithTag("result-scroll").performTouchInput { swipeUp() }
         val range = compose.onNodeWithTag("result-scroll").fetchSemanticsNode().config[SemanticsProperties.VerticalScrollAxisRange]
         assertTrue(range.value() > 0f)
-        compose.onNodeWithText("Копировать").assertIsDisplayed().performClick()
-        compose.onNodeWithText("Скопировано").assertIsDisplayed()
+        compose.onNodeWithTag("copy-result").assertIsDisplayed().performClick()
+        compose.onNodeWithText("Готово").assertIsDisplayed()
         compose.runOnIdle {
             val context = InstrumentationRegistry.getInstrumentation().targetContext
             val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
             assertEquals(result, clipboard.primaryClip!!.getItemAt(0).text.toString())
         }
+        compose.onNodeWithTag("result-more").performClick()
         compose.onNodeWithText("Режимы").performClick()
         compose.onNodeWithText("Новый материал").performClick()
         compose.runOnIdle { assertTrue(modes); assertTrue(newMaterial) }

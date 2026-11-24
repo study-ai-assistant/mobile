@@ -10,6 +10,16 @@ import ru.studyassistant.mobile.api.ApiException
 internal const val MAX_MATERIAL_FILE_BYTES = 10 * 1024 * 1024
 data class MaterialFile(val name: String, val bytes: ByteArray)
 
+internal fun validateFileSize(size: Long?) {
+    if (size != null && size > MAX_MATERIAL_FILE_BYTES) throw ApiException("Файл слишком большой. Максимум — 10 МиБ.")
+}
+
+internal fun validateFileName(name: String) {
+    if (!(name.endsWith(".txt", true) || name.endsWith(".pdf", true)) || name.any { it == '"' || it == '\r' || it == '\n' }) {
+        throw ApiException("Выберите файл в формате TXT или PDF.")
+    }
+}
+
 /** Ограничение проверяется при чтении: провайдер может не сообщать размер. */
 internal fun readMaterialBytes(input: InputStream): ByteArray {
     val output = ByteArrayOutputStream()
@@ -25,13 +35,14 @@ internal fun readMaterialBytes(input: InputStream): ByteArray {
 }
 
 internal fun readMaterialFile(resolver: ContentResolver, uri: Uri): MaterialFile {
-    val name = resolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+    val name = resolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE), null, null, null)?.use { cursor ->
+        if (!cursor.moveToFirst()) return@use null
+        val sizeColumn = cursor.getColumnIndex(OpenableColumns.SIZE)
+        if (sizeColumn >= 0 && !cursor.isNull(sizeColumn)) validateFileSize(cursor.getLong(sizeColumn))
         val column = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-        if (column >= 0 && cursor.moveToFirst()) cursor.getString(column) else null
+        if (column >= 0) cursor.getString(column) else null
     } ?: throw ApiException("Не удалось определить имя файла. Выберите другой TXT или PDF-файл.")
-    if (!(name.endsWith(".txt", ignoreCase = true) || name.endsWith(".pdf", ignoreCase = true)) || name.any { it == '"' || it == '\r' || it == '\n' }) {
-        throw ApiException("Выберите файл в формате TXT или PDF.")
-    }
+    validateFileName(name)
     val bytes = resolver.openInputStream(uri)?.use(::readMaterialBytes)
         ?: throw ApiException("Не удалось открыть файл. Выберите его снова.")
     return MaterialFile(name, bytes)

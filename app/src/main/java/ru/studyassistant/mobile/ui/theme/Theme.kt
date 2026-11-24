@@ -46,7 +46,12 @@ fun AIStudyAssistantTheme(content: @Composable () -> Unit) {
         }
     }
     MaterialTheme(colorScheme = UiKitColors, typography = Typography,
-        shapes = StudyShapes, content = content)
+        shapes = StudyShapes) {
+        androidx.compose.runtime.CompositionLocalProvider(
+            androidx.compose.material3.LocalContentColor provides TextPrimary,
+            content = content
+        )
+    }
 }
 
 private tailrec fun Context.activity(): Activity? = when (this) {

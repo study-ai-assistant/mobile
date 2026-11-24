@@ -12,6 +12,11 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.IconButton
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -138,7 +143,7 @@ internal fun buildExportFileName(
     return "${safeMode}_${dateStamp}.$extension"
 }
 
-private suspend fun writeUtf8TextToUri(
+internal suspend fun writeUtf8TextToUri(
     context: Context,
     uri: Uri,
     text: String
@@ -249,67 +254,61 @@ fun ResultContent(
         SaveScreenState.Result -> Unit
     }
 
-    Column(modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(StudySpacing.compact)) {
-        Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceVariant, border = BorderStroke(2.dp, MaterialTheme.colorScheme.primary)) {
-            Text(
-                modeTitle,
-                style = MaterialTheme.typography.titleSmall,
-                modifier = Modifier.padding(StudySpacing.compact)
-            )
-        }
-        Column(
-            Modifier
-                .weight(1f)
-                .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.shapes.large)
-                .testTag("result-scroll")
-                .verticalScroll(rememberScrollState())
-        ) {
-            Text(result, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(StudySpacing.screen).testTag("result-text"))
-        }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(StudySpacing.compact)) {
-            StudyButton(
-                onClick = {
-                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                    clipboard.setPrimaryClip(ClipData.newPlainText("Результат", result))
-                    copied = true
-                },
-                modifier = Modifier.weight(1f)
-            ) {
-                Text(
-                    if (copied) "Скопировано" else "Копировать",
-                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }
-                )
-            }
-            OutlinedButton(
-                onClick = { showFormatSheet = true },
-                shape = RoundedCornerShape(16.dp),
-                border = BorderStroke(1.5.dp, SaveAccentPurple),
-                colors = ButtonDefaults.outlinedButtonColors(
-                    containerColor = SaveSecondaryFill,
-                    contentColor = TextPrimary
-                ),
-                modifier = Modifier
-                    .weight(1f)
-                    .testTag("save-file-button")
-            ) {
-                Text("Сохранить")
+    var showActions by remember { mutableStateOf(false) }
+    val isQuestions = modeTitle == ProcessingMode.SELF_CHECK_QUESTIONS.title
+    Column(modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Box(Modifier.fillMaxWidth()) {
+            ScreenTitle("Результат")
+            Box(Modifier.align(Alignment.CenterEnd)) {
+                IconButton(onClick = { showActions = true }, modifier = Modifier.testTag("result-more").semantics { contentDescription = "Другие действия" }) {
+                    Text("⋮", style = MaterialTheme.typography.titleLarge)
+                }
+                DropdownMenu(expanded = showActions, onDismissRequest = { showActions = false }) {
+                    if (isQuestions) DropdownMenuItem(text = { Text(if (copied) "Скопировано" else "Копировать") }, onClick = {
+                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                        clipboard.setPrimaryClip(ClipData.newPlainText("Результат", result))
+                        copied = true
+                    })
+                    if (isQuestions) DropdownMenuItem(text = { Text("Сохранить") }, onClick = { showActions = false; showFormatSheet = true })
+                    DropdownMenuItem(text = { Text("Поделиться") }, onClick = { showActions = false; shareResultText(context, modeTitle, result) }, modifier = Modifier.testTag("share-result-button"))
+                    DropdownMenuItem(text = { Text("Режимы") }, onClick = { showActions = false; onModes() })
+                    if (isQuestions) DropdownMenuItem(text = { Text("Новый материал") }, onClick = { showActions = false; onNewMaterial() })
+                }
             }
         }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(StudySpacing.compact)) {
-            OutlinedButton(
-                onClick = { shareResultText(context, modeTitle, result) },
-                modifier = Modifier
-                    .weight(1f)
-                    .testTag("share-result-button")
-            ) {
-                Text("Поделиться")
-            }
-            OutlinedButton(onClick = onModes, modifier = Modifier.weight(1f)) { Text("Режимы") }
-        }
-        OutlinedButton(onClick = onNewMaterial, shape = MaterialTheme.shapes.medium, colors = ButtonDefaults.outlinedButtonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant), border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary), modifier = Modifier.fillMaxWidth()) { Text("Новый материал") }
-    }
+        ModeBadge(modeTitle)
 
+        Column(Modifier.weight(1f).fillMaxWidth()
+            .then(if (isQuestions) Modifier else Modifier.background(PrimarySurface, MaterialTheme.shapes.large))
+            .testTag("result-scroll").verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            if (isQuestions) {
+                result.split(Regex("\\n\\s*\\n")).filter { it.isNotBlank() }.forEach { paragraph ->
+                    Surface(Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large, color = PrimarySurface) {
+                        Text(paragraph, Modifier.padding(14.dp), style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            } else Text(result, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(16.dp).testTag("result-text"))
+        }
+        if (isQuestions) SecondaryButton("Назад", onModes, Modifier.fillMaxWidth()) else {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            StudyButton(onClick = {
+                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                clipboard.setPrimaryClip(ClipData.newPlainText("Результат", result)); copied = true
+            }, modifier = Modifier.weight(1f).heightIn(min = 52.dp).testTag("copy-result").semantics { contentDescription = "Копировать" }) {
+                StudySymbol("copy", Modifier.size(22.dp), TextOnPrimary)
+                Spacer(Modifier.width(6.dp))
+                Text(if (copied) "Готово" else "Копир.", modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
+            }
+            OutlinedButton(onClick = { showFormatSheet = true }, shape = MaterialTheme.shapes.medium,
+                border = BorderStroke(2.dp, Primary), colors = ButtonDefaults.outlinedButtonColors(containerColor = PrimarySurface, contentColor = TextPrimary),
+                modifier = Modifier.weight(1f).heightIn(min = 52.dp).testTag("save-file-button").semantics { contentDescription = "Сохранить" }) {
+                StudySymbol("download", Modifier.size(22.dp), TextPrimary)
+                Spacer(Modifier.width(6.dp)); Text("Сохр.")
+            }
+        }
+        SecondaryButton("Новый материал", onNewMaterial, Modifier.fillMaxWidth())
+        }
+    }
     if (showFormatSheet) {
         val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
         ModalBottomSheet(
@@ -332,7 +331,7 @@ fun ResultContent(
 }
 
 @Composable
-private fun FormatPickerSheetContent(
+internal fun FormatPickerSheetContent(
     selectedFormat: ExportFormat,
     onSelectFormat: (ExportFormat) -> Unit,
     onConfirm: () -> Unit,
@@ -349,10 +348,10 @@ private fun FormatPickerSheetContent(
             val isSelected = format == selectedFormat
             Surface(
                 shape = RoundedCornerShape(20.dp),
-                color = if (isSelected) SaveSecondaryFill else Color.White,
+                color = if (isSelected) SaveSecondaryFill else Background,
                 border = BorderStroke(
                     width = if (isSelected) 2.dp else 1.dp,
-                    color = if (isSelected) SaveAccentPurple else Color(0xFFC5C2D6)
+                    color = if (isSelected) SaveAccentPurple else Inactive
                 ),
                 modifier = Modifier
                     .fillMaxWidth()
@@ -401,222 +400,42 @@ private fun FormatPickerSheetContent(
 }
 
 @Composable
-private fun SaveSuccessScreen(
-    fileName: String,
-    onShare: () -> Unit,
-    onDone: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .background(SaveBackgroundColor)
-            .padding(horizontal = 16.dp, vertical = 20.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(
-            text = "Сохранение",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.SemiBold,
-            color = TextPrimary
-        )
-
-        Spacer(Modifier.weight(1f))
-
-        Box(
-            modifier = Modifier
-                .size(88.dp)
-                .background(SaveSuccessGreen, CircleShape),
-            contentAlignment = Alignment.Center
-        ) {
-            Canvas(modifier = Modifier.size(36.dp)) {
-                val path = Path().apply {
-                    moveTo(size.width * 0.18f, size.height * 0.52f)
-                    lineTo(size.width * 0.42f, size.height * 0.76f)
-                    lineTo(size.width * 0.84f, size.height * 0.26f)
-                }
-                drawPath(
-                    path = path,
-                    color = TextPrimary,
-                    style = Stroke(
-                        width = 6f,
-                        cap = StrokeCap.Round,
-                        join = StrokeJoin.Round
-                    )
-                )
-            }
+internal fun SaveSuccessScreen(fileName: String, onShare: () -> Unit, onDone: () -> Unit, modifier: Modifier = Modifier) {
+    AdaptiveScreen(modifier, footer = {
+        StudyButton(onShare, Modifier.fillMaxWidth().heightIn(min = 52.dp).testTag("save-success-share")) { Text("Поделиться") }
+        SecondaryButton("Готово", onDone, Modifier.fillMaxWidth().testTag("save-success-done"))
+    }) {
+        ScreenTitle("Сохранение")
+        Spacer(Modifier.height(48.dp))
+        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+            StudySymbol("success", Modifier.size(80.dp), TextPrimary)
         }
-
-        Spacer(Modifier.weight(1f))
-
-        Surface(
-            shape = RoundedCornerShape(20.dp),
-            color = SaveSuccessGreen,
-            modifier = Modifier
-                .fillMaxWidth()
-                .testTag("save-success-card")
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Text(
-                    text = "Файл сохранён",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = TextPrimary,
-                    textAlign = TextAlign.Center
-                )
-                Text(
-                    text = fileName,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = TextPrimary,
-                    textAlign = TextAlign.Center
-                )
-            }
-        }
-
-        Spacer(Modifier.height(16.dp))
-
-        StudyButton(
-            onClick = onShare,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(52.dp)
-                .testTag("save-success-share")
-        ) {
-            Text("Поделиться", style = MaterialTheme.typography.titleMedium)
-        }
-
-        Spacer(Modifier.height(12.dp))
-
-        OutlinedButton(
-            onClick = onDone,
-            shape = RoundedCornerShape(16.dp),
-            border = BorderStroke(1.5.dp, SaveAccentPurple),
-            colors = ButtonDefaults.outlinedButtonColors(
-                containerColor = SaveSecondaryFill,
-                contentColor = TextPrimary
-            ),
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(52.dp)
-                .testTag("save-success-done")
-        ) {
-            Text("Готово", style = MaterialTheme.typography.titleMedium)
+        Spacer(Modifier.height(32.dp))
+        Surface(Modifier.fillMaxWidth().testTag("save-success-card"), shape = MaterialTheme.shapes.large,
+            color = Success, border = BorderStroke(2.dp, Primary)) {
+            Text("Файл сохранён\n$fileName", Modifier.padding(24.dp), style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center)
         }
     }
 }
 
 @Composable
-private fun SaveErrorScreen(
-    onRetry: () -> Unit,
-    onBack: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .background(SaveBackgroundColor)
-            .padding(horizontal = 16.dp, vertical = 20.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(
-            text = "Сохранение",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.SemiBold,
-            color = TextPrimary
-        )
-
-        Spacer(Modifier.weight(1f))
-
-        Box(
-            modifier = Modifier
-                .size(88.dp)
-                .background(SaveErrorFill, CircleShape),
-            contentAlignment = Alignment.Center
-        ) {
-            Canvas(modifier = Modifier.size(38.dp)) {
-                val triangle = Path().apply {
-                    moveTo(size.width * 0.5f, size.height * 0.12f)
-                    lineTo(size.width * 0.9f, size.height * 0.86f)
-                    lineTo(size.width * 0.1f, size.height * 0.86f)
-                    close()
-                }
-                drawPath(
-                    path = triangle,
-                    color = SaveErrorText,
-                    style = Stroke(width = 5f, join = StrokeJoin.Round)
-                )
-                drawLine(
-                    color = SaveErrorText,
-                    start = Offset(size.width * 0.5f, size.height * 0.38f),
-                    end = Offset(size.width * 0.5f, size.height * 0.62f),
-                    strokeWidth = 5f,
-                    cap = StrokeCap.Round
-                )
-                drawCircle(
-                    color = SaveErrorText,
-                    radius = 3.2f,
-                    center = Offset(size.width * 0.5f, size.height * 0.74f)
-                )
+internal fun SaveErrorScreen(onRetry: () -> Unit, onBack: () -> Unit, modifier: Modifier = Modifier) {
+    AdaptiveScreen(modifier, footer = {
+        StudyButton(onRetry, Modifier.fillMaxWidth().heightIn(min = 52.dp).testTag("save-error-retry")) { Text("Повторить") }
+        SecondaryButton("Назад", onBack, Modifier.fillMaxWidth().testTag("save-error-back"))
+    }) {
+        ScreenTitle("Сохранение")
+        Spacer(Modifier.height(48.dp))
+        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+            Box(Modifier.size(80.dp).background(ErrorSurface, CircleShape), contentAlignment = Alignment.Center) {
+                StudySymbol("warning", Modifier.size(40.dp), ErrorText)
             }
         }
-
-        Spacer(Modifier.weight(1f))
-
-        Surface(
-            shape = RoundedCornerShape(20.dp),
-            color = SaveErrorFill,
-            border = BorderStroke(1.5.dp, SaveErrorBorder),
-            modifier = Modifier
-                .fillMaxWidth()
-                .testTag("save-error-card")
-        ) {
-            Text(
-                text = "Не удалось сохранить.\nНет места или доступа к хранилищу.\nПовторите попытку",
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.Medium,
-                color = SaveErrorText,
-                textAlign = TextAlign.Center,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 20.dp)
-            )
-        }
-
-        Spacer(Modifier.height(16.dp))
-
-        StudyButton(
-            onClick = onRetry,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(52.dp)
-                .testTag("save-error-retry")
-        ) {
-            Text("Повторить", style = MaterialTheme.typography.titleMedium)
-        }
-
-        Spacer(Modifier.height(12.dp))
-
-        OutlinedButton(
-            onClick = onBack,
-            shape = RoundedCornerShape(16.dp),
-            border = BorderStroke(1.5.dp, SaveAccentPurple),
-            colors = ButtonDefaults.outlinedButtonColors(
-                containerColor = SaveSecondaryFill,
-                contentColor = TextPrimary
-            ),
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(52.dp)
-                .testTag("save-error-back")
-        ) {
-            Text("Назад", style = MaterialTheme.typography.titleMedium)
+        Spacer(Modifier.height(32.dp))
+        Surface(Modifier.fillMaxWidth().testTag("save-error-card"), shape = MaterialTheme.shapes.large,
+            color = ErrorSurface, border = BorderStroke(1.dp, ErrorText)) {
+            Text("Не удалось сохранить.\nНет места или доступа к хранилищу.\nПовторите попытку", Modifier.padding(24.dp),
+                color = ErrorText, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
         }
     }
 }

@@ -33,16 +33,16 @@ class MaterialModesUiTest {
         capture("material-empty")
         compose.onNodeWithText("Выбрать режим").performScrollTo().assertIsNotEnabled()
         compose.runOnIdle { flow.editMaterial("a".repeat(24001)) }
-        compose.onNodeWithText("Допустимо не более 24 000 символов.").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Допустимо не более 24 000 символов. Сократите текст.").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("Выбрать режим").assertIsNotEnabled()
         capture("material-error")
         compose.runOnIdle { flow.selectFile("Лекция.txt", byteArrayOf(1)) }
         compose.onNodeWithText("Лекция.txt").performScrollTo().assertIsDisplayed()
         capture("material-file")
-        compose.onNodeWithText("Учебный текст").assertIsNotEnabled()
+        compose.onNodeWithContentDescription("Учебный текст").assertIsNotEnabled()
         compose.onNodeWithText("Выбрать режим").performScrollTo().assertIsEnabled()
-        compose.onNodeWithText("Убрать файл").performScrollTo().performClick()
-        compose.onNodeWithText("Учебный текст").assertIsEnabled()
+        compose.onNodeWithContentDescription("Убрать файл").performScrollTo().performClick()
+        compose.onNodeWithContentDescription("Учебный текст").assertIsEnabled()
         compose.onNodeWithText("Выбрать режим").performScrollTo().assertIsNotEnabled()
     }
     @Test fun allModeCardsCanBeReachedAndSelectionIsVisible() {
@@ -57,6 +57,6 @@ class MaterialModesUiTest {
         compose.onNodeWithText("Создать").performScrollTo().assertIsDisplayed().assertIsEnabled()
         capture("create-button-visible")
         compose.onNodeWithText("Назад").performScrollTo().performClick()
-        compose.onNodeWithText("Учебный текст").assertTextContains("Учебный материал")
+        compose.onNodeWithContentDescription("Учебный текст").assertTextContains("Учебный материал")
     }
 }
