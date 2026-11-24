@@ -25,6 +25,14 @@
 | Как участвовать | [CONTRIBUTING.md](CONTRIBUTING.md) |
 | Definition of Done | [docs/DEFINITION_OF_DONE.md](docs/DEFINITION_OF_DONE.md) |
 
+## Возможности и готовая сборка
+
+TXT/PDF и ввод текста до 24 000 символов; пять режимов; фоновая обработка длинного материала с прогрессом; копирование, отправка результата и сохранение TXT/Markdown в UTF-8.
+
+[Все возможности, ограничения и архитектура](docs/CURRENT_APP.md) · [Документация](docs/DOCUMENTATION_INDEX.md) · [Чек-лист телефонов](docs/PHONE_CHECKLIST.md).
+
+**Релизный APK пока не опубликован (проверено 23.11.2026).** После выполнения #70 добавить сюда прямую ссылку на подписанный APK 1.0. Доступные публикации: [GitHub Releases](https://github.com/study-ai-assistant/mobile/releases). До этого можно собрать debug APK по инструкции ниже; он не заменяет финальный релиз.
+
 ## Быстрый старт
 
 1. Установить Git и Android Studio. В SDK Manager установить Android SDK Platform 37,

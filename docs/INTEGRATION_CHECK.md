@@ -1,3 +1,5 @@
+> Исторический документ отдельного этапа. Актуальное поведение и ограничения: [CURRENT_APP.md](CURRENT_APP.md).
+
 # Проверка mobile → backend → Groq, 27.10.2026
 
 Проверка выполнена на Android Emulator API 37, JDK 21.
