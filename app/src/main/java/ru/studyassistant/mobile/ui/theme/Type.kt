@@ -1,6 +1,7 @@
 package ru.studyassistant.mobile.ui.theme
 
 import androidx.compose.material3.Typography
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -16,16 +17,16 @@ val Typography = Typography(
     displayLarge = Defaults.displayLarge.copy(fontFamily = JetBrainsMono, fontWeight = FontWeight.Bold),
     displayMedium = Defaults.displayMedium.copy(fontFamily = JetBrainsMono, fontWeight = FontWeight.Bold),
     displaySmall = Defaults.displaySmall.copy(fontFamily = JetBrainsMono, fontWeight = FontWeight.Bold),
-    headlineLarge = Defaults.headlineLarge.copy(fontFamily = JetBrainsMono, fontWeight = FontWeight.Bold),
+    headlineLarge = Defaults.headlineLarge.copy(fontSize = 26.sp, lineHeight = 32.sp, fontFamily = JetBrainsMono, fontWeight = FontWeight.Bold),
     headlineMedium = Defaults.headlineMedium.copy(fontFamily = JetBrainsMono, fontWeight = FontWeight.Bold),
-    headlineSmall = Defaults.headlineSmall.copy(fontFamily = JetBrainsMono, fontWeight = FontWeight.Bold),
+    headlineSmall = Defaults.headlineSmall.copy(fontSize = 24.sp, lineHeight = 30.sp, fontFamily = JetBrainsMono, fontWeight = FontWeight.Bold),
     titleLarge = Defaults.titleLarge.copy(fontFamily = JetBrainsMono, fontWeight = FontWeight.Bold),
-    titleMedium = Defaults.titleMedium.copy(fontFamily = JetBrainsMono, fontWeight = FontWeight.Bold),
+    titleMedium = Defaults.titleMedium.copy(fontSize = 16.sp, lineHeight = 21.sp, fontFamily = JetBrainsMono, fontWeight = FontWeight.Bold),
     titleSmall = Defaults.titleSmall.copy(fontFamily = JetBrainsMono, fontWeight = FontWeight.Bold),
     bodyLarge = Defaults.bodyLarge.copy(fontFamily = JetBrainsMono, fontWeight = FontWeight.Normal),
     bodyMedium = Defaults.bodyMedium.copy(fontFamily = JetBrainsMono, fontWeight = FontWeight.Normal),
-    bodySmall = Defaults.bodySmall.copy(fontFamily = JetBrainsMono, fontWeight = FontWeight.Normal),
+    bodySmall = Defaults.bodySmall.copy(fontSize = 11.sp, lineHeight = 15.sp, fontFamily = JetBrainsMono, fontWeight = FontWeight.Normal),
     labelLarge = Defaults.labelLarge.copy(fontFamily = JetBrainsMono, fontWeight = FontWeight.Bold),
-    labelMedium = Defaults.labelMedium.copy(fontFamily = JetBrainsMono, fontWeight = FontWeight.Normal),
+    labelMedium = Defaults.labelMedium.copy(fontSize = 11.sp, lineHeight = 15.sp, fontFamily = JetBrainsMono, fontWeight = FontWeight.Normal),
     labelSmall = Defaults.labelSmall.copy(fontFamily = JetBrainsMono, fontWeight = FontWeight.Normal)
 )

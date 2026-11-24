@@ -48,7 +48,7 @@ class StudyFlowUiTest {
         }
         capture("material")
         compose.onNodeWithText("Выбрать режим").performScrollTo().assertIsNotEnabled()
-        compose.onNodeWithText("Учебный текст").performTextInput("Материал для проверки")
+        compose.onNodeWithContentDescription("Учебный текст").performTextInput("Материал для проверки")
         compose.onNodeWithText("Выбрать режим").performScrollTo().performClick()
         compose.onNodeWithText("Подробный конспект").assertExists()
         capture("modes")
@@ -56,11 +56,12 @@ class StudyFlowUiTest {
         compose.runOnIdle { flow.submit() }
         compose.onNodeWithText("Проверочный конспект").assertExists()
         capture("result")
-        compose.onNodeWithText("Копировать").performClick()
-        compose.onNodeWithText("Скопировано").assertExists()
+        compose.onNodeWithTag("copy-result").performClick()
+        compose.onNodeWithText("Готово").assertExists()
+        compose.onNodeWithTag("result-more").performClick()
         compose.onNodeWithText("Режимы").performClick()
         compose.onNodeWithText("Назад").performScrollTo().performClick()
-        compose.onNodeWithText("Учебный текст").assertTextContains("Материал для проверки")
+        compose.onNodeWithContentDescription("Учебный текст").assertTextContains("Материал для проверки")
     }
 
     @Test fun loadingCanBeCancelledAndServerErrorKeepsMaterial() {
@@ -94,8 +95,9 @@ class StudyFlowUiTest {
         capture("error")
         compose.runOnIdle { flow.retry() }
         compose.onNodeWithText("Результат после повтора").assertExists()
+        compose.onNodeWithTag("result-more").performClick()
         compose.onNodeWithText("Режимы").performClick()
         compose.onNodeWithText("Назад").performScrollTo().performClick()
-        compose.onNodeWithText("Учебный текст").assertTextContains("Сохранённый материал")
+        compose.onNodeWithContentDescription("Учебный текст").assertTextContains("Сохранённый материал")
     }
 }

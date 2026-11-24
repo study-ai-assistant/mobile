@@ -18,6 +18,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.combinedClickable
+import ru.studyassistant.mobile.ui.theme.ScreenTitle
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
@@ -77,6 +80,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun StudyApp(flow: StudyFlow, serverAddress: String? = null, onSaveServer: (String) -> Unit = {}, onPickFile: (Uri) -> Unit = {}) {
     val state by flow.state.collectAsState()
+    var showConnectionTools by remember { mutableStateOf(false) }
     val context = LocalContext.current
     var longWait by remember { mutableStateOf(false) }
     LaunchedEffect(state.busy) {
@@ -100,27 +104,30 @@ fun StudyApp(flow: StudyFlow, serverAddress: String? = null, onSaveServer: (Stri
     val generationScreen = state.screen == Screen.MODES && !state.loadingModes && (state.busy || state.error != null)
     BackHandler(state.screen != Screen.MATERIAL || state.busy) { flow.back() }
     Scaffold(modifier = Modifier.fillMaxSize()) { insets ->
+        Box(Modifier.fillMaxSize().padding(insets), contentAlignment = Alignment.TopCenter) {
         Column(
-            Modifier.padding(insets).imePadding().padding(StudySpacing.screen)
-                .fillMaxSize().then(if (state.screen == Screen.RESULT || state.longProgress != null || state.longError) Modifier else Modifier.verticalScroll(rememberScrollState())),
+            Modifier.widthIn(max = 400.dp).imePadding().padding(StudySpacing.screen)
+                .fillMaxSize().then(if (state.screen == Screen.RESULT || generationScreen || state.longProgress != null || state.longError) Modifier else Modifier.verticalScroll(rememberScrollState())),
             verticalArrangement = Arrangement.spacedBy(StudySpacing.gap)
         ) {
-            if (state.screen != Screen.MATERIAL && state.longProgress == null && !state.longError) Text(when (state.screen) {
-                Screen.MATERIAL -> "Загрузка материала"
-                Screen.MODES -> if (generationScreen) "Результат" else "Выбор режима"
-                Screen.RESULT -> "Результат"
-            }, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.fillMaxWidth(), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+            if (state.screen == Screen.MODES && !generationScreen && state.longProgress == null && !state.longError) ScreenTitle("Выбор режима")
             if (state.screen != Screen.RESULT && (state.longProgress != null || state.longError)) {
                 LongProgressContent(LongProcessingState(running = state.busy, progress = state.longProgress ?: LongProgress(), error = state.error, canRetry = state.canRetry), flow::back, flow::retry, Modifier.weight(1f), materialName = state.fileName ?: "Введённый текст")
             } else {
             when (state.screen) {
                 Screen.MATERIAL -> {
+                    Box(Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(top = 32.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) {
                     MaterialContent(state, flow::editMaterial,
                         { filePicker.launch(arrayOf("text/plain", "application/pdf")) }, flow::clearFile,
-                        { request(false, modes = true) })
+                        { request(false, modes = true) }, { showConnectionTools = !showConnectionTools })
+                        }
+                    }
+                    if (showConnectionTools) {
                     OutlinedButton(onClick = { request(true) }, enabled = !state.busy,
                         modifier = Modifier.fillMaxWidth()) { Text("Проверить связь с сервером") }
                     serverAddress?.let { ServerSettingsButton(it, !state.busy, onSaveServer) }
+                    }
                 }
                 Screen.MODES -> {
                     if (generationScreen) GenerationContent(state, longWait, flow::cancel, { request(false, retry = true) }, flow::back)
@@ -143,7 +150,7 @@ fun StudyApp(flow: StudyFlow, serverAddress: String? = null, onSaveServer: (Stri
                 }
             }
             if (state.loadingFile) OutlinedButton(onClick = flow::cancel) { Text("Отмена") }
-            if (!generationScreen) state.error?.let { error ->
+            if (!generationScreen && state.screen != Screen.MATERIAL) state.error?.let { error ->
                 ErrorMessage(error,
                     modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
                 if (state.canRetry && !state.busy) {
@@ -156,5 +163,6 @@ fun StudyApp(flow: StudyFlow, serverAddress: String? = null, onSaveServer: (Stri
                 OutlinedButton(onClick = flow::back, modifier = Modifier.fillMaxWidth()) { Text("Назад") }
             }
         }
+    }
     }
 }

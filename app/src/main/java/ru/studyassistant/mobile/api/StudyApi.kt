@@ -79,6 +79,8 @@ class StudyApi(
         mode: String,
         expected: Int = 200
     ): JSONObject = try {
+        ru.studyassistant.mobile.validateFileSize(fileBytes.size.toLong())
+        ru.studyassistant.mobile.validateFileName(fileName)
         val boundary = "Boundary-" + System.currentTimeMillis()
         val lineEnd = "\r\n"
         val twoHyphens = "--"
@@ -169,11 +171,15 @@ class StudyApi(
                 connection.outputStream.use { it.write(payload) }
             }
             val status = connection.responseCode
-            if (status != expected) throw ApiException(
+            if (status != expected) {
+                val problem = readProblem(connection)
+                throw ApiException(
                 if (method == "GET" && path == "/api/v1/modes" && status in listOf(404, 501))
                     "Эндпоинт $path не найден. Проверьте адрес сервера."
-                else ApiMessages.http(status, method == "POST"), status, readProblem(connection)
+                else if (ApiMessages.knownRateLimit(status, problem)) ApiMessages.RATE_LIMIT
+                else ApiMessages.http(status, method == "POST"), status, problem
             )
+            }
             val response = connection.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
             return if (path.startsWith("/api/v1/jobs")) JSONObject(response).put("_pollSeconds", connection.getHeaderField("Retry-After")?.toIntOrNull() ?: 3).toString() else response
         } catch (e: ApiException) {

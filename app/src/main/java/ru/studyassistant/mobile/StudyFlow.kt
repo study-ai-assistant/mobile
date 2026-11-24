@@ -13,11 +13,11 @@ import ru.studyassistant.mobile.api.validateMaterial
 enum class Screen { MATERIAL, MODES, RESULT }
 
 enum class ProcessingMode(val title: String, val description: String) {
-    SHORT_SUMMARY("Краткий конспект", "Главное из материала в нескольких тезисах"),
-    DETAILED_SUMMARY("Подробный конспект", "Полный разбор темы со всеми деталями"),
-    SIMPLE_EXPLANATION("Объяснение простым языком", "Сложные места пересказаны понятными словами"),
+    SHORT_SUMMARY("Краткий конспект", "Объёмные лекции в короткие тезисы"),
+    DETAILED_SUMMARY("Подробный конспект", "Полный разбор со всеми деталями"),
+    SIMPLE_EXPLANATION("Объяснение простым языком", "Сложные темы простым языком"),
     KEY_TERMS("Ключевые термины", "Главные понятия с краткими определениями"),
-    SELF_CHECK_QUESTIONS("Вопросы для самопроверки", "Вопросы по материалу, чтобы проверить себя");
+    SELF_CHECK_QUESTIONS("Вопросы для самопроверки", "Готовые тесты для проверки знаний");
 
     companion object {
         fun fromId(id: String): ProcessingMode? = entries.find { it.name == id }
@@ -111,6 +111,12 @@ class StudyFlow(
 
     fun selectFile(name: String, bytes: ByteArray) {
         if (state.value.busy) return
+        try { validateFileName(name); validateFileSize(bytes.size.toLong())
+            if (bytes.isEmpty()) throw ApiException("Файл пуст. Выберите другой файл.")
+        } catch (e: ApiException) {
+            mutableState.value = state.value.copy(fileName = null, fileBytes = null, error = e.message, canRetry = false)
+            return
+        }
         mutableState.value = state.value.copy(
             fileName = name,
             fileBytes = bytes,
@@ -125,10 +131,13 @@ class StudyFlow(
     fun readFile(read: suspend () -> MaterialFile) {
         if (state.value.busy) return
         val requestGeneration = ++generation
-        mutableState.value = state.value.copy(busy = true, loadingFile = true, error = null, notice = null, canRetry = false, longProgress = null, longError = false)
+        mutableState.value = state.value.copy(busy = true, loadingFile = true, fileName = null, fileBytes = null, error = null, notice = null, canRetry = false, longProgress = null, longError = false)
         job = scope.launch {
             try {
                 val file = read()
+                validateFileName(file.name)
+                validateFileSize(file.bytes.size.toLong())
+                if (file.bytes.isEmpty()) throw ApiException("Файл пуст. Выберите другой файл.")
                 if (generation == requestGeneration) mutableState.value = state.value.copy(
                     fileName = file.name, fileBytes = file.bytes, material = "", result = "")
             } catch (e: CancellationException) { throw e
@@ -154,6 +163,7 @@ class StudyFlow(
     fun showModes() {
         if (state.value.busy) return
         val current = state.value
+        if (current.error != null && current.screen == Screen.MATERIAL) return
         val error = if (current.fileBytes != null) {
             if (current.fileBytes.isEmpty()) "Файл пуст или не содержит текста." else null
         } else {
@@ -234,7 +244,9 @@ class StudyFlow(
         if (submitted.busy) return
         if (!healthOnly) {
             val hasFile = request.fileName != null && request.fileBytes != null
-            val error = if (hasFile) null else validateMaterial(request.text)
+            val error = if (hasFile) {
+                try { validateFileSize(request.fileBytes!!.size.toLong()); null } catch (e: ApiException) { e.message }
+            } else validateMaterial(request.text)
             if (error != null || !submitted.modesLoaded || request.mode !in submitted.modes) {
                 mutableState.value = submitted.copy(
                     error = error ?: "Режим пока недоступен.",
@@ -272,7 +284,9 @@ class StudyFlow(
             } catch (e: ApiException) {
                 if (generation == requestGeneration) {
                     mutableState.value = state.value.copy(
-                        error = e.message ?: "Не удалось выполнить запрос.", canRetry = true
+                        screen = if (!healthOnly && e.status in listOf(400, 413, 415, 422)) Screen.MATERIAL else state.value.screen,
+                        error = e.message ?: "Не удалось выполнить запрос.",
+                        canRetry = e.status == null || e.status >= 500 || e.status in listOf(408, 429)
                     )
                 }
             } finally {

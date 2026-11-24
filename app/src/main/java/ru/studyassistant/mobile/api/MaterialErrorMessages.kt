@@ -31,6 +31,7 @@ internal object MaterialErrorMessages {
     )
 
     fun message(status: Int, body: String?): String {
+        if (ApiMessages.knownRateLimit(status, body)) return ApiMessages.RATE_LIMIT
         val problem = try { body?.let(::JSONObject) } catch (_: JSONException) { null }
         val bodyStatus = problem?.opt("status")
         val matchingStatus = bodyStatus is Number && bodyStatus.toDouble() == status.toDouble()

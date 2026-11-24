@@ -33,6 +33,7 @@ class LiveBackendTest {
     }
 
     @Test fun healthFromApp() {
+        compose.onNodeWithText("Привет!").performTouchInput { longClick() }
         compose.onNodeWithText("Проверить связь с сервером").performScrollTo().performClick()
         compose.waitUntil(20_000) { flow.state.value.notice != null || flow.state.value.error != null }
         assertNull(flow.state.value.error)
@@ -43,8 +44,9 @@ class LiveBackendTest {
     @Test fun processTextThroughRealBackend() {
         val sample = "Митохондрии обеспечивают клетку энергией. В них происходит клеточное дыхание. " +
             "Полученная энергия запасается в молекулах АТФ и используется для работы клетки."
-        compose.onNodeWithText("Учебный текст").performTextInput(sample)
+        compose.onNodeWithContentDescription("Учебный текст").performTextInput(sample)
         compose.onNodeWithText("Выбрать режим").performScrollTo().performClick()
+        compose.waitUntil(20_000) { !flow.state.value.loadingModes }
         compose.onNodeWithText("Создать").performScrollTo().performClick()
         compose.waitUntil(100_000) {
             flow.state.value.screen == Screen.RESULT || flow.state.value.error != null
@@ -55,9 +57,10 @@ class LiveBackendTest {
             assertEquals(Screen.RESULT, state.screen)
             assertTrue(state.result.isNotBlank())
             capture("llm-success", state.result)
-            compose.onNodeWithText("Копировать").performScrollTo().performClick()
-            compose.onNodeWithText("Скопировано").assertExists()
-            compose.onNodeWithText("Режимы").performScrollTo().performClick()
+            compose.onNodeWithTag("copy-result").performScrollTo().performClick()
+            compose.onNodeWithText("Готово").assertExists()
+            compose.onNodeWithTag("result-more").performClick()
+            compose.onNodeWithText("Режимы").performClick()
         } else {
             // Этот режим запускается только для сервера с заведомо пустым ключом.
             assertEquals(Screen.MODES, state.screen)
@@ -66,14 +69,15 @@ class LiveBackendTest {
             compose.onNodeWithText("Повторить").assertExists()
         }
         compose.onNodeWithText("Назад").performScrollTo().performClick()
-        compose.onNodeWithText("Учебный текст").assertTextContains(sample)
+        compose.onNodeWithContentDescription("Учебный текст").assertTextContains(sample)
     }
 
     @Test fun serverUnavailable() {
         assumeTrue("Сервер должен быть отдельно остановлен", arguments.getString("backendOffline") == "true")
         val sample = "Учебный текст сохраняется при ошибке сети."
-        compose.onNodeWithText("Учебный текст").performTextInput(sample)
+        compose.onNodeWithContentDescription("Учебный текст").performTextInput(sample)
         compose.onNodeWithText("Выбрать режим").performScrollTo().performClick()
+        compose.waitUntil(20_000) { !flow.state.value.loadingModes }
         compose.onNodeWithText("Создать").performScrollTo().performClick()
         compose.waitUntil(20_000) { flow.state.value.error != null }
         assertFalse(flow.state.value.busy)
@@ -82,7 +86,7 @@ class LiveBackendTest {
         compose.onNodeWithText("Повторить").assertExists()
         capture("server-unavailable", flow.state.value.error!!)
         compose.onNodeWithText("Назад").performScrollTo().performClick()
-        compose.onNodeWithText("Учебный текст").assertTextContains(sample)
+        compose.onNodeWithContentDescription("Учебный текст").assertTextContains(sample)
     }
 
     private fun capture(name: String, message: String) {
