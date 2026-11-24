@@ -13,7 +13,7 @@ android {
         applicationId = "ru.studyassistant.mobile"
         minSdk = 26
         targetSdk = 37
-        versionCode = 1
+        versionCode = 2
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -22,8 +22,9 @@ android {
     buildTypes {
         release {
             optimization {
-                enable = true
-                packageScope = setOf("androidx.**", "kotlin.**", "kotlinx.**")
+                // Временное исправление: rc1 падает при инициализации AndroidX.
+                // Включать оптимизацию после проверки подписанного релиза на устройствах.
+                enable = false
             }
         }
     }
